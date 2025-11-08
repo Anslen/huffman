@@ -1,44 +1,55 @@
 package main
 
-type wordsFrequence = map[rune]int
-type pair = Pair[int64, int]
-type huffmanTree = Tree[pair]
-type HuffmanCode = Pair[uint64, int8]
-type HuffmanCodes = map[rune]HuffmanCode
+type wordsFrequence = map[byte]int
+type huffmanTree = Tree[charFrequence]
+type HuffmanCodes = map[byte]HuffmanCode
+
+type charFrequence struct {
+	char      int8
+	frequence int
+}
+
+type HuffmanCode struct {
+	code  uint8
+	width int8
+}
 
 type huffmanTreeInfo struct {
-	node      *huffmanTree
-	code      uint64
-	codeWidth int8
+	node *huffmanTree
+	code HuffmanCode
 }
 
-func getFrequence(str string) (ret wordsFrequence) {
+func getFrequence(str string) (ret wordsFrequence, ok bool) {
 	ret = make(wordsFrequence)
 	for _, char := range str {
-		frequence := ret[char]
-		ret[char] = frequence + 1
+		if char > rune(127) {
+			return make(wordsFrequence), false
+		}
+		frequence := ret[byte(char)]
+		ret[byte(char)] = frequence + 1
 	}
-	return ret
+	return ret, true
 }
 
-func toHuffmanTree(frequence wordsFrequence) (ret *huffmanTree, ok bool) {
+func toHuffmanTree(frequence wordsFrequence) (ret *huffmanTree) {
 	// store [char, frequence]
-	priority_queue := NewPriorityQueue[pair](func(a1, a2 any) bool {
-		return a1.(pair).Second < a2.(pair).Second
+	priority_queue := NewPriorityQueue[charFrequence](func(a1, a2 any) bool {
+		return a1.(charFrequence).frequence < a2.(charFrequence).frequence
 	})
 	for key, value := range frequence {
-		priority_queue.Push(pair{int64(key), value})
+		priority_queue.Push(charFrequence{int8(key), value})
 	}
 
 	// map from frequence to tree
-	trees := make(map[int64]*huffmanTree)
-	treeIndex := int64(-1)
+	trees := make(map[int8]*huffmanTree)
+	treeIndex := int8(-1)
 	for priority_queue.Size() > 1 {
 		pairLeft, _ := priority_queue.Pop()
 		pairRight, _ := priority_queue.Pop()
 
-		treeLeft := trees[pairLeft.First]
-		treeRight := trees[pairRight.First]
+		treeLeft := trees[pairLeft.char]
+		treeRight := trees[pairRight.char]
+		// if not exist creat tree node
 		if treeLeft == nil {
 			treeLeft = NewTree(pairLeft)
 		}
@@ -46,8 +57,9 @@ func toHuffmanTree(frequence wordsFrequence) (ret *huffmanTree, ok bool) {
 			treeRight = NewTree(pairRight)
 		}
 
-		frequenceSum := pairLeft.Second + pairRight.Second
-		parent := NewTree(pair{treeIndex, frequenceSum})
+		// store tree
+		frequenceSum := pairLeft.frequence + pairRight.frequence
+		parent := NewTree(charFrequence{treeIndex, frequenceSum})
 		parent.Left = treeLeft
 		parent.Right = treeRight
 		trees[treeIndex] = parent
@@ -56,13 +68,10 @@ func toHuffmanTree(frequence wordsFrequence) (ret *huffmanTree, ok bool) {
 		priority_queue.Push(parent.Value)
 	}
 
-	if treeIndex >= 0 {
-		return nil, false
-	}
-
+	// return first tree
 	resultPair, _ := priority_queue.Top()
-	ret = trees[resultPair.First]
-	return ret, true
+	ret = trees[resultPair.char]
+	return ret
 }
 
 func toHuffmanCode(tree *huffmanTree) (ret HuffmanCodes) {
@@ -70,28 +79,32 @@ func toHuffmanCode(tree *huffmanTree) (ret HuffmanCodes) {
 	stack := NewStack[huffmanTreeInfo]()
 
 	currentNode := tree
-	currentCode := uint64(0)
+	currentCode := uint8(0)
 	currentCodeWidth := int8(0)
 
 	for currentNode != nil || !stack.Empty() {
+		// back
 		if currentNode == nil {
 			info, _ := stack.Pop()
 
 			currentNode = info.node
-			currentCode = info.code
-			currentCodeWidth = info.codeWidth
+			currentCode = info.code.code
+			currentCodeWidth = info.code.width
 			continue
 		}
 
-		if currentNode.Value.First >= 0 {
-			ret[rune(currentNode.Value.First)] = HuffmanCode{currentCode, currentCodeWidth}
+		// is leaf node: record huffman code
+		if currentNode.Value.char >= 0 {
+			ret[uint8(currentNode.Value.char)] = HuffmanCode{currentCode, currentCodeWidth}
 			currentNode = nil
 			continue
 		}
 
+		// calculate right child node
 		childCode := (currentCode << 1) | 0x1
-		stack.Push(huffmanTreeInfo{currentNode.Right, childCode, currentCodeWidth + 1})
+		stack.Push(huffmanTreeInfo{currentNode.Right, HuffmanCode{childCode, currentCodeWidth + 1}})
 
+		// jump to left child node
 		currentNode = currentNode.Left
 		currentCode = currentCode << 1
 		currentCodeWidth++
@@ -100,18 +113,18 @@ func toHuffmanCode(tree *huffmanTree) (ret HuffmanCodes) {
 }
 
 func Huffman(str string) (codes HuffmanCodes, result []byte, width int64, ok bool) {
-	frequence := getFrequence(str)
-	tree, ok := toHuffmanTree(frequence)
+	frequence, ok := getFrequence(str)
 	if !ok {
 		return codes, result, width, false
 	}
+	tree := toHuffmanTree(frequence)
 	codes = toHuffmanCode(tree)
 
 	bitsRecorder := NewBitsRecorder()
 	for _, char := range str {
-		code := codes[char]
-		bitsRecorder.Add(code.First, code.Second)
-		width += int64(code.Second)
+		huffman := codes[byte(char)]
+		bitsRecorder.Add(uint64(huffman.code), huffman.width)
+		width += int64(huffman.width)
 	}
 
 	return codes, bitsRecorder.Result, width, true
