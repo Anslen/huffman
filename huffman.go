@@ -31,7 +31,7 @@ func getFrequence(str string) (ret wordsFrequence, ok bool) {
 	return ret, true
 }
 
-func toHuffmanTree(frequence wordsFrequence) (ret *huffmanTree) {
+func frequenceToTree(frequence wordsFrequence) (ret *huffmanTree) {
 	// store [char, frequence]
 	priority_queue := NewPriorityQueue[charFrequence](func(a1, a2 any) bool {
 		return a1.(charFrequence).frequence < a2.(charFrequence).frequence
@@ -74,7 +74,7 @@ func toHuffmanTree(frequence wordsFrequence) (ret *huffmanTree) {
 	return ret
 }
 
-func toHuffmanCode(tree *huffmanTree) (ret HuffmanCodes) {
+func treeToCodes(tree *huffmanTree) (ret HuffmanCodes) {
 	ret = make(HuffmanCodes)
 	stack := NewStack[huffmanTreeInfo]()
 
@@ -117,8 +117,8 @@ func Huffman(str string) (codes HuffmanCodes, result []byte, width int64, ok boo
 	if !ok {
 		return codes, result, width, false
 	}
-	tree := toHuffmanTree(frequence)
-	codes = toHuffmanCode(tree)
+	tree := frequenceToTree(frequence)
+	codes = treeToCodes(tree)
 
 	bitsRecorder := NewBitsRecorder()
 	for _, char := range str {
