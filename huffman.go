@@ -164,6 +164,9 @@ func HuffmanDecode(bin []byte) (ret string) {
 
 	// convert to huffman tree
 	tree := codesToTree(codes)
+	if tree == nil {
+		return ""
+	}
 
 	result := make([]byte, 0)
 	// find chars
@@ -178,8 +181,12 @@ func HuffmanDecode(bin []byte) (ret string) {
 			current = current.Right
 		}
 
-		// is leaf node save result
-		if current.Value != 0 {
+		if current == nil {
+			return ""
+		}
+
+		// is leaf node: both children nil
+		if current.Left == nil && current.Right == nil {
 			result = append(result, current.Value)
 			current = tree
 		}
@@ -199,8 +206,10 @@ func HuffmanEncode(str string) (codes HuffmanCodes, result []byte, width int64, 
 	codes = treeToCodes(tree)
 
 	bitsRecorder := NewBitsRecorder()
-	for _, char := range str {
-		huffman := codes[byte(char)]
+	// iterate bytes (not runes) to match how frequence/count was computed
+	data := []byte(str)
+	for _, b := range data {
+		huffman := codes[b]
 		bitsRecorder.Add(uint64(huffman.Code), huffman.Width)
 		width += int64(huffman.Width)
 	}
