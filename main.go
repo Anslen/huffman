@@ -22,11 +22,17 @@ func main() {
 		decode_flag = true
 	default:
 		fmt.Printf("Error: unkonwn command %v", os.Args[1])
+		os.Exit(1)
 	}
 
 	inputFileName := os.Args[2]
 	//inputFileName := "input.txt"
-	outputFileName := "out.bin"
+	var outputFileName string
+	if encode_flag {
+		outputFileName = "out.bin"
+	} else if decode_flag {
+		outputFileName = "out.txt"
+	}
 
 	for index, command := range os.Args {
 		if command == "-o" {
@@ -38,14 +44,14 @@ func main() {
 		}
 	}
 
-	if encode_flag {
-		str, err := os.ReadFile(inputFileName)
-		if err != nil {
-			fmt.Printf("Error: can't open file %v", inputFileName)
-			os.Exit(1)
-		}
+	str, err := os.ReadFile(inputFileName)
+	if err != nil {
+		fmt.Printf("Error: can't open file %v", inputFileName)
+		os.Exit(1)
+	}
 
-		codes, encode, width, ok := Huffman(string(str))
+	if encode_flag {
+		codes, encode, width, ok := HuffmanEncode(string(str))
 		if !ok {
 			fmt.Println("Error: overflow, number of words greater than 2^63")
 			os.Exit(1)
@@ -61,7 +67,14 @@ func main() {
 	}
 
 	if decode_flag {
-
+		txt := HuffmanDecode(str)
+		outputFile, err := os.Create(outputFileName)
+		if err != nil {
+			fmt.Printf("Error: can't create file %s", outputFileName)
+			os.Exit(1)
+		}
+		outputFile.WriteString(txt)
+		outputFile.Close()
 	}
 }
 
@@ -84,11 +97,11 @@ func writeCodes(file io.Writer, codes HuffmanCodes) (err error) {
 		if err != nil {
 			return err
 		}
-		err = binary.Write(file, binary.BigEndian, value.code)
+		err = binary.Write(file, binary.BigEndian, value.Code)
 		if err != nil {
 			return err
 		}
-		err = binary.Write(file, binary.BigEndian, value.width)
+		err = binary.Write(file, binary.BigEndian, value.Width)
 		if err != nil {
 			return err
 		}
@@ -99,11 +112,11 @@ func writeCodes(file io.Writer, codes HuffmanCodes) (err error) {
 	if err != nil {
 		return err
 	}
-	err = binary.Write(file, binary.BigEndian, uint8(0))
+	err = binary.Write(file, binary.BigEndian, uint64(0))
 	if err != nil {
 		return err
 	}
-	err = binary.Write(file, binary.BigEndian, int8(0))
+	err = binary.Write(file, binary.BigEndian, uint8(0))
 	if err != nil {
 		return err
 	}

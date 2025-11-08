@@ -11,40 +11,26 @@ func NewBitsRecorder() (ret *BitsRecorder) {
 	return ret
 }
 
-func (recorder *BitsRecorder) Add(value uint64, valueWidth int8) {
-	var mask uint64
-	var newData byte
-	for valueWidth != 0 {
-		if recorder.Width%8 != 0 {
-			leftWidth := int8(8 - (recorder.Width % 8))
-			length := len(recorder.Result)
-			if leftWidth >= valueWidth {
-				mask = uint64(0xff >> (8 - valueWidth))
-				newData = byte((value & mask) << (leftWidth - valueWidth))
-				recorder.Result[length-1] = recorder.Result[length-1] | newData
-				recorder.Width += int(valueWidth)
-				valueWidth = 0
-			} else {
-				mask = uint64(0xff >> (8 - leftWidth) << (valueWidth - leftWidth))
-				newData = byte((value & mask) >> (valueWidth - leftWidth))
-				recorder.Result[length-1] = recorder.Result[length-1] | newData
-				recorder.Width += int(leftWidth)
-				valueWidth -= leftWidth
-			}
-		} else {
-			if valueWidth >= 8 {
-				mask = uint64(0xff << (valueWidth - 8))
-				newData = byte((value & mask) >> (valueWidth - 8))
-				recorder.Result = append(recorder.Result, newData)
-				recorder.Width += 8
-				valueWidth -= 8
-			} else {
-				mask = uint64(0xff >> (8 - valueWidth))
-				newData = byte((value & mask) << (8 - valueWidth))
-				recorder.Result = append(recorder.Result, newData)
-				recorder.Width += int(valueWidth)
-				valueWidth = 0
-			}
+func (recorder *BitsRecorder) Add(value uint64, valueWidth uint8) {
+	if valueWidth == 0 || valueWidth > 64 {
+		return
+	}
+
+	// write bits MSB-first within the given valueWidth
+	for v := int(valueWidth); v > 0; v-- {
+		bitIndex := uint(v - 1)
+		bit := (value >> bitIndex) & 1
+
+		// ensure there's a byte to write into
+		if recorder.Width%8 == 0 {
+			recorder.Result = append(recorder.Result, 0)
 		}
+
+		byteIndex := len(recorder.Result) - 1
+		bitOffset := 7 - (recorder.Width % 8) // MSB-first in each byte
+		if bit == 1 {
+			recorder.Result[byteIndex] |= byte(1 << uint(bitOffset))
+		}
+		recorder.Width++
 	}
 }
