@@ -7,42 +7,41 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 3 {
-		fmt.Println("Error: no command")
-		os.Exit(1)
-	}
-
 	var encode_flag bool
 	var decode_flag bool
-	switch os.Args[1] {
-	case "encode":
-		encode_flag = true
-	case "decode":
-		decode_flag = true
-	default:
-		fmt.Printf("Error: unkonwn command %v", os.Args[1])
-		os.Exit(1)
-	}
 
-	inputFileName := os.Args[2]
-	//inputFileName := "input.txt"
+	var inputFileName string
 	var outputFileName string
-	if encode_flag {
-		outputFileName = "out.bin"
-	} else if decode_flag {
-		outputFileName = "out.txt"
-	}
 
-	for index, command := range os.Args {
-		if command == "-o" {
+	index := 1
+	for index < len(os.Args) {
+		if os.Args[index] == "-e" {
+			encode_flag = true
+		} else if os.Args[index] == "-d" {
+			decode_flag = true
+		} else if os.Args[index] == "-o" {
 			if index == len(os.Args)-1 {
 				fmt.Println("Error: -o need argument")
 				os.Exit(1)
 			}
 			outputFileName = os.Args[index+1]
+			index++
+		} else if inputFileName == "" {
+			inputFileName = os.Args[index]
+		} else {
+			fmt.Printf("Error: unknown argument %s\n", os.Args[index])
+			os.Exit(1)
 		}
+		index++
 	}
 
+	if outputFileName == "" {
+		if encode_flag {
+			outputFileName = "out.bin"
+		} else if decode_flag {
+			outputFileName = "out.txt"
+		}
+	}
 	str, err := os.ReadFile(inputFileName)
 	if err != nil {
 		fmt.Printf("Error: can't open file %v", inputFileName)
