@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -57,6 +58,27 @@ func main() {
 			os.Exit(1)
 		}
 
+		// calculate compression ratio
+		originalBytes := len(str)
+		compressedDataBytes := int((width + 7) / 8)
+		var buf bytes.Buffer
+		if err := writeCodes(&buf, codes); err != nil {
+			fmt.Printf("Error: cannot serialize codes: %v", err)
+			os.Exit(1)
+		}
+		codeTableBytes := buf.Len()
+		// 8 empty bytes when storing width
+		compressedWithCodesBytes := codeTableBytes + 8 + compressedDataBytes
+
+		fmt.Printf("Original length: %d bytes\n", originalBytes)
+		fmt.Printf("Compressed length (data only): %d bytes (%d bits)\n", compressedDataBytes, width)
+		fmt.Printf("Compressed length (with Huffman table): %d bytes\n", compressedWithCodesBytes)
+		if originalBytes > 0 {
+			ratio := 1.0 - float64(compressedWithCodesBytes)/float64(originalBytes)
+			fmt.Printf("Compression ratio: %.2f%%\n", ratio*100)
+		}
+
+		// store result
 		outputFile, err := os.Create(outputFileName)
 		if err != nil {
 			fmt.Printf("Error: can't create file %s", outputFileName)
