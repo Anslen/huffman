@@ -122,8 +122,7 @@ func codesToTree(codes HuffmanCodes) (ret *Tree[byte]) {
 	var current *Tree[byte] = ret
 	var parent *Tree[byte]
 	for char, code := range codes {
-		reader := NewBitsReaderFromUint64(code.Code, 64)
-		reader.Seek(int(64 - code.Width))
+		reader := NewBitsReaderFromUint64(code.Code, int(code.Width))
 		for i := 0; i < int(code.Width); i++ {
 			parent = current
 			bit, _ := reader.GetBit()
@@ -150,15 +149,16 @@ func codesToTree(codes HuffmanCodes) (ret *Tree[byte]) {
 
 func HuffmanDecode(bin []byte) (ret string) {
 	reader := NewBitsReader(bin, len(bin)*8)
+	codeStoreWidth, _ := reader.GetUint8()
 	// get huffman code
 	codes := make(HuffmanCodes)
 	char, _ := reader.GetByte()
-	code, _ := reader.GetUint64()
+	code, _ := reader.GetNBits(int(codeStoreWidth))
 	codeWidth, _ := reader.GetUint8()
 	for codeWidth != 0 {
 		codes[char] = HuffmanCode{code, codeWidth}
 		char, _ = reader.GetByte()
-		code, _ = reader.GetUint64()
+		code, _ = reader.GetNBits(int(codeStoreWidth))
 		codeWidth, _ = reader.GetUint8()
 	}
 
@@ -197,10 +197,10 @@ func HuffmanDecode(bin []byte) (ret string) {
 	return ret
 }
 
-func HuffmanEncode(str string) (codes HuffmanCodes, result []byte, width int64, ok bool) {
+func HuffmanEncode(str string) (codes HuffmanCodes, codeWidth uint8, result []byte, resultWidth int64, ok bool) {
 	frequence, ok := getFrequence(str)
 	if !ok {
-		return codes, result, width, false
+		return codes, codeWidth, result, resultWidth, false
 	}
 	tree := frequenceToTree(frequence)
 	codes = treeToCodes(tree)
@@ -211,8 +211,13 @@ func HuffmanEncode(str string) (codes HuffmanCodes, result []byte, width int64, 
 	for _, b := range data {
 		huffman := codes[b]
 		bitsRecorder.Add(uint64(huffman.Code), huffman.Width)
-		width += int64(huffman.Width)
+		resultWidth += int64(huffman.Width)
 	}
 
-	return codes, bitsRecorder.Result, width, true
+	codeWidth = uint8(tree.Height() - 1)
+	if (codeWidth % 8) != 0 {
+		codeWidth = (codeWidth/8 + 1) * 8
+	}
+
+	return codes, codeWidth, bitsRecorder.Result, resultWidth, true
 }

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
@@ -52,7 +50,7 @@ func main() {
 	}
 
 	if encode_flag {
-		codes, encode, width, ok := HuffmanEncode(string(str))
+		codes, codeWidth, result, resultWidth, ok := HuffmanEncode(string(str))
 		if !ok {
 			fmt.Println("Error: overflow, number of words greater than 2^63")
 			os.Exit(1)
@@ -60,21 +58,16 @@ func main() {
 
 		// calculate compression ratio
 		originalBytes := len(str)
-		compressedDataBytes := int((width + 7) / 8)
-		var buf bytes.Buffer
-		if err := writeCodes(&buf, codes); err != nil {
-			fmt.Printf("Error: cannot serialize codes: %v", err)
-			os.Exit(1)
-		}
-		codeTableBytes := buf.Len()
+		compressedDataBytes := int((resultWidth + 7) / 8)
+		codeTableBytes := (len(codes)+1)*int(2+codeWidth/8) + 1 // each code: 1 byte char + codeWidth/8 bytes code + 1 byte width
 		// 8 empty bytes when storing width
 		compressedWithCodesBytes := codeTableBytes + 8 + compressedDataBytes
 
 		fmt.Printf("Original length: %d bytes\n", originalBytes)
-		fmt.Printf("Compressed length (data only): %d bytes (%d bits)\n", compressedDataBytes, width)
+		fmt.Printf("Compressed length (data only): %d bytes (%d bits)\n", compressedDataBytes, resultWidth)
 		fmt.Printf("Compressed length (with Huffman table): %d bytes\n", compressedWithCodesBytes)
 		if originalBytes > 0 {
-			ratio := 1.0 - float64(compressedWithCodesBytes)/float64(originalBytes)
+			ratio := float64(compressedWithCodesBytes) / float64(originalBytes)
 			fmt.Printf("Compression ratio: %.2f%%\n", ratio*100)
 		}
 
@@ -84,7 +77,7 @@ func main() {
 			fmt.Printf("Error: can't create file %s", outputFileName)
 			os.Exit(1)
 		}
-		writeResult(outputFile, codes, width, encode)
+		writeResult(outputFile, codes, codeWidth, resultWidth, result)
 		outputFile.Close()
 	}
 
@@ -100,56 +93,37 @@ func main() {
 	}
 }
 
-func writeResult(file io.Writer, codes HuffmanCodes, width int64, encode []byte) {
-	err := writeCodes(file, codes)
+func writeResult(file io.Writer, codes HuffmanCodes, codeWidth uint8, width int64, encode []byte) {
+	err := writeCodes(file, codes, codeWidth)
 	if err != nil {
 		panic(err)
 	}
 
-	err = writeEncode(file, encode, width)
+	// write zero and width info
+	recorder := NewBitsRecorder()
+	recorder.Add(uint64(0), 16+codeWidth)
+	recorder.Add(uint64(width), 64)
+	_, err = file.Write(recorder.Result)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = file.Write(encode)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func writeCodes(file io.Writer, codes HuffmanCodes) (err error) {
+func writeCodes(file io.Writer, codes HuffmanCodes, codeWidth uint8) (err error) {
 	// write all codes
+	recorder := NewBitsRecorder()
+	recorder.Add(uint64(codeWidth), 8)
 	for key, value := range codes {
-		err = binary.Write(file, binary.BigEndian, key)
-		if err != nil {
-			return err
-		}
-		err = binary.Write(file, binary.BigEndian, value.Code)
-		if err != nil {
-			return err
-		}
-		err = binary.Write(file, binary.BigEndian, value.Width)
-		if err != nil {
-			return err
-		}
+		recorder.Add(uint64(key), 8)
+		recorder.Add(value.Code, codeWidth)
+		recorder.Add(uint64(value.Width), 8)
 	}
 
-	// write zero
-	err = binary.Write(file, binary.BigEndian, byte(0))
-	if err != nil {
-		return err
-	}
-	err = binary.Write(file, binary.BigEndian, uint64(0))
-	if err != nil {
-		return err
-	}
-	err = binary.Write(file, binary.BigEndian, uint8(0))
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func writeEncode(file io.Writer, result []byte, width int64) (err error) {
-	err = binary.Write(file, binary.BigEndian, width)
-	if err != nil {
-		return err
-	}
-	_, err = file.Write(result)
+	_, err = file.Write(recorder.Result)
 	return err
 }

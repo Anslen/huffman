@@ -35,25 +35,33 @@ func NewBitsReaderFromByte(data byte, width int) (ret *BitsReader) {
 }
 
 func NewBitsReaderFromUint64(data uint64, width int) (ret *BitsReader) {
-	if width > 64 {
+	if width < 0 || width > 64 {
 		return ret
 	}
 
-	ret = new(BitsReader)
-	// read data to byte slice
-	ret.data = make([]byte, 8)
+	slice := make([]byte, 8)
 	for i := 0; i < 8; i++ {
-		ret.data[7-i] = byte(data & 0xFF)
+		slice[7-i] = byte(data & 0xFF)
 		data >>= 8
 	}
+	reader := NewBitsReader(slice, 64)
+	reader.Seek(64 - width)
 
-	ret.width = width
-	ret.currentPointer = 0
-	return ret
+	recorder := NewBitsRecorder()
+	for i := 0; i < width; i++ {
+		bit, _ := reader.GetBit()
+		recorder.Add(uint64(bit), 1)
+	}
+	return NewBitsReader(recorder.Result, recorder.Width)
 }
 
 func (reader *BitsReader) Seek(offset int) {
 	reader.currentPointer += offset
+	if reader.currentPointer < 0 {
+		reader.currentPointer = 0
+	} else if reader.currentPointer > reader.width {
+		reader.currentPointer = reader.width - 1
+	}
 }
 
 func (reader *BitsReader) GetBit() (ret int8, ok bool) {
@@ -99,6 +107,18 @@ func (reader *BitsReader) GetInt8() (ret int8, ok bool) {
 func (reader *BitsReader) GetByte() (ret byte, ok bool) {
 	ret, ok = reader.GetUint8()
 	return ret, ok
+}
+
+func (reader *BitsReader) GetNBits(n int) (ret uint64, ok bool) {
+	if n < 0 || n > 64 {
+		return 0, false
+	}
+	for i := 0; i < n; i++ {
+		ret <<= 1
+		bit, _ := reader.GetBit()
+		ret |= uint64(bit)
+	}
+	return ret, true
 }
 
 func (reader *BitsReader) GetUint64() (ret uint64, ok bool) {

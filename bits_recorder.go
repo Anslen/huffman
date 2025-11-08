@@ -12,6 +12,7 @@ func NewBitsRecorder() (ret *BitsRecorder) {
 }
 
 func (recorder *BitsRecorder) Add(value uint64, valueWidth uint8) {
+	// write valueWidth bits of value from little with MSB first
 	if valueWidth == 0 || valueWidth > 64 {
 		return
 	}
