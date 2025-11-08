@@ -21,12 +21,9 @@ type huffmanTreeInfo struct {
 
 func getFrequence(str string) (ret wordsFrequence, ok bool) {
 	ret = make(wordsFrequence)
-	for _, char := range str {
-		if char > rune(127) {
-			return make(wordsFrequence), false
-		}
-		frequence := ret[byte(char)]
-		ret[byte(char)] = frequence + 1
+	data := []byte(str)
+	for _, b := range data {
+		ret[b] = ret[b] + 1
 	}
 	return ret, true
 }
