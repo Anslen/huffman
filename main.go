@@ -35,6 +35,15 @@ func main() {
 		index++
 	}
 
+	// check flag
+	if !encode_flag && !decode_flag {
+		fmt.Println("Error: need -e or -d flag")
+		os.Exit(1)
+	} else if encode_flag && decode_flag {
+		fmt.Println("Error: can't use -e and -d flag together")
+		os.Exit(1)
+	}
+
 	if outputFileName == "" {
 		if encode_flag {
 			outputFileName = "out.bin"
@@ -51,7 +60,7 @@ func main() {
 	if encode_flag {
 		codes, codeWidth, result, resultWidth, ok := HuffmanEncode(string(str))
 		if !ok {
-			fmt.Println("Error: overflow, number of words greater than 2^63")
+			fmt.Println("Error: huffman code longer than 64 bits")
 			os.Exit(1)
 		}
 

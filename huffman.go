@@ -19,13 +19,13 @@ type huffmanTreeInfo struct {
 	code HuffmanCode
 }
 
-func getFrequence(str string) (ret wordsFrequence, ok bool) {
+func getFrequence(str string) (ret wordsFrequence) {
 	ret = make(wordsFrequence)
 	data := []byte(str)
 	for _, b := range data {
 		ret[b] = ret[b] + 1
 	}
-	return ret, true
+	return ret
 }
 
 func frequenceToTree(frequence wordsFrequence) (ret *huffmanTree) {
@@ -198,10 +198,7 @@ func HuffmanDecode(bin []byte) (ret string) {
 }
 
 func HuffmanEncode(str string) (codes HuffmanCodes, codeWidth uint8, result []byte, resultWidth int64, ok bool) {
-	frequence, ok := getFrequence(str)
-	if !ok {
-		return codes, codeWidth, result, resultWidth, false
-	}
+	frequence := getFrequence(str)
 	tree := frequenceToTree(frequence)
 	codes = treeToCodes(tree)
 
@@ -215,6 +212,9 @@ func HuffmanEncode(str string) (codes HuffmanCodes, codeWidth uint8, result []by
 	}
 
 	codeWidth = uint8(tree.Height() - 1)
+	if codeWidth > 64 {
+		return codes, codeWidth, result, resultWidth, false
+	}
 	if (codeWidth % 8) != 0 {
 		codeWidth = (codeWidth/8 + 1) * 8
 	}
