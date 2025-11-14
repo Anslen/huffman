@@ -6,7 +6,18 @@ import (
 	"os"
 )
 
+const HELO_STRING = "pass the file name as arugement to encode or decode\n" +
+	"Usage: huffman -e|-d [-o output_file] input_file\n" +
+	"  -e : encode\n" +
+	"  -d : decode\n" +
+	"  -o : specify output file name (optional)"
+
 func main() {
+	if len(os.Args) == 1 {
+		fmt.Println(HELO_STRING)
+		os.Exit(0)
+	}
+
 	var encode_flag bool
 	var decode_flag bool
 
@@ -15,7 +26,10 @@ func main() {
 
 	index := 1
 	for index < len(os.Args) {
-		if os.Args[index] == "-e" {
+		if os.Args[index] == "-h" || os.Args[index] == "--help" {
+			fmt.Println(HELO_STRING)
+			os.Exit(0)
+		} else if os.Args[index] == "-e" {
 			encode_flag = true
 		} else if os.Args[index] == "-d" {
 			decode_flag = true
