@@ -148,18 +148,66 @@ func codesToTree(codes HuffmanCodes) (ret *Tree[byte]) {
 }
 
 func HuffmanDecode(bin []byte) (ret string) {
+	// Check if input is empty
+	if len(bin) == 0 {
+		return ""
+	}
+
 	reader := NewBitsReader(bin, len(bin)*8)
-	codeStoreWidth, _ := reader.GetUint8()
+	if reader == nil {
+		return ""
+	}
+
+	codeStoreWidth, ok := reader.GetUint8()
+	if !ok {
+		return ""
+	}
+
+	// Validate code width
+	if codeStoreWidth == 0 || codeStoreWidth > 64 {
+		return ""
+	}
+
 	// get huffman code
 	codes := make(HuffmanCodes)
-	char, _ := reader.GetByte()
-	code, _ := reader.GetNBits(int(codeStoreWidth))
-	codeWidth, _ := reader.GetUint8()
+	char, ok := reader.GetByte()
+	if !ok {
+		return ""
+	}
+
+	code, ok := reader.GetNBits(int(codeStoreWidth))
+	if !ok {
+		return ""
+	}
+
+	codeWidth, ok := reader.GetUint8()
+	if !ok {
+		return ""
+	}
+
+	// Read code table with validation
 	for codeWidth != 0 {
 		codes[char] = HuffmanCode{code, codeWidth}
-		char, _ = reader.GetByte()
-		code, _ = reader.GetNBits(int(codeStoreWidth))
-		codeWidth, _ = reader.GetUint8()
+
+		char, ok = reader.GetByte()
+		if !ok {
+			return ""
+		}
+
+		code, ok = reader.GetNBits(int(codeStoreWidth))
+		if !ok {
+			return ""
+		}
+
+		codeWidth, ok = reader.GetUint8()
+		if !ok {
+			return ""
+		}
+	}
+
+	// Validate that we have at least one code
+	if len(codes) == 0 {
+		return ""
 	}
 
 	// convert to huffman tree
@@ -171,9 +219,22 @@ func HuffmanDecode(bin []byte) (ret string) {
 	result := make([]byte, 0)
 	// find chars
 	current := tree
-	width, _ := reader.GetInt64()
+	width, ok := reader.GetInt64()
+	if !ok {
+		return ""
+	}
+
+	// Validate width is not negative
+	if width < 0 {
+		return ""
+	}
+
 	for width != 0 {
-		bit, _ := reader.GetBit()
+		bit, ok := reader.GetBit()
+		if !ok {
+			return ""
+		}
+
 		width--
 		if bit == 0 {
 			current = current.Left
@@ -181,6 +242,7 @@ func HuffmanDecode(bin []byte) (ret string) {
 			current = current.Right
 		}
 
+		// Check if we reached an invalid path in the tree
 		if current == nil {
 			return ""
 		}
@@ -198,6 +260,9 @@ func HuffmanDecode(bin []byte) (ret string) {
 }
 
 func HuffmanEncode(str string) (codes HuffmanCodes, codeWidth uint8, result []byte, resultWidth int64, ok bool) {
+	if str == "" {
+		return make(HuffmanCodes), 0, make([]byte, 0), 0, true
+	}
 	frequence := getFrequence(str)
 	tree := frequenceToTree(frequence)
 	codes = treeToCodes(tree)

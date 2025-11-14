@@ -65,6 +65,12 @@ func main() {
 			outputFileName = "out.txt"
 		}
 	}
+
+	if inputFileName == "" {
+		fmt.Println("Error: input file required")
+		os.Exit(1)
+	}
+
 	str, err := os.ReadFile(inputFileName)
 	if err != nil {
 		fmt.Printf("Error: can't open file %v", inputFileName)
@@ -96,29 +102,44 @@ func main() {
 		// store result
 		outputFile, err := os.Create(outputFileName)
 		if err != nil {
-			fmt.Printf("Error: can't create file %s", outputFileName)
+			fmt.Printf("Error: can't open output file %s\n", outputFileName)
 			os.Exit(1)
 		}
-		writeResult(outputFile, codes, codeWidth, resultWidth, result)
-		outputFile.Close()
+		defer outputFile.Close()
+		if err := writeResult(outputFile, codes, codeWidth, resultWidth, result); err != nil {
+			fmt.Printf("Error: failed to write encoded data: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Encoded successfully, result in: %s\n", outputFileName)
 	}
 
 	if decode_flag {
 		txt := HuffmanDecode(str)
-		outputFile, err := os.Create(outputFileName)
-		if err != nil {
-			fmt.Printf("Error: can't create file %s", outputFileName)
+		// handle corrupted file
+		// empty text after encode is 11 bytes header
+		if txt == "" && len(str) > 11 {
+			fmt.Printf("Error: file %s is corrupted or not a valid huffman encoded file\n", inputFileName)
 			os.Exit(1)
 		}
-		outputFile.WriteString(txt)
-		outputFile.Close()
+		outputFile, err := os.Create(outputFileName)
+		if err != nil {
+			fmt.Printf("Error: can't open output file %s\n", outputFileName)
+			os.Exit(1)
+		}
+		defer outputFile.Close()
+		_, err = outputFile.WriteString(txt)
+		if err != nil {
+			fmt.Printf("Error: failed to write decoded data: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Decoded successfully, result in: %s\n", outputFileName)
 	}
 }
 
-func writeResult(file io.Writer, codes HuffmanCodes, codeWidth uint8, width int64, encode []byte) {
+func writeResult(file io.Writer, codes HuffmanCodes, codeWidth uint8, width int64, encode []byte) error {
 	err := writeCodes(file, codes, codeWidth)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to write huffman codes: %w", err)
 	}
 
 	// write zero and width info
@@ -127,16 +148,17 @@ func writeResult(file io.Writer, codes HuffmanCodes, codeWidth uint8, width int6
 	recorder.Add(uint64(width), 64)
 	_, err = file.Write(recorder.Result)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to write metadata: %w", err)
 	}
 
 	_, err = file.Write(encode)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to write encoded data: %w", err)
 	}
+	return nil
 }
 
-func writeCodes(file io.Writer, codes HuffmanCodes, codeWidth uint8) (err error) {
+func writeCodes(file io.Writer, codes HuffmanCodes, codeWidth uint8) error {
 	// write all codes
 	recorder := NewBitsRecorder()
 	recorder.Add(uint64(codeWidth), 8)
@@ -146,6 +168,9 @@ func writeCodes(file io.Writer, codes HuffmanCodes, codeWidth uint8) (err error)
 		recorder.Add(uint64(value.Width), 8)
 	}
 
-	_, err = file.Write(recorder.Result)
-	return err
+	_, err := file.Write(recorder.Result)
+	if err != nil {
+		return fmt.Errorf("failed to write codes table: %w", err)
+	}
+	return nil
 }
