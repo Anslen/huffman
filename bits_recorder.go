@@ -15,30 +15,44 @@ func NewBitsRecorder() (ret *BitsRecorder) {
 	return ret
 }
 
+// write single bit to recorder
+func (recorder *BitsRecorder) AddBit(value uint8) {
+	if recorder.Width%8 == 0 {
+		recorder.Result = append(recorder.Result, value<<7)
+	} else {
+		recorder.Result[recorder.Width/8] |= value << (7 - recorder.Width%8)
+	}
+}
+
 // add bits to the recorder
+//
+// low bits in value valid
 //
 // write in MSB-first order
 func (recorder *BitsRecorder) Add(value uint64, valueWidth uint8) {
-	// write valueWidth bits of value from little with MSB first
 	if valueWidth == 0 || valueWidth > 64 {
 		return
 	}
 
-	// write bits MSB-first within the given valueWidth
-	for v := int(valueWidth); v > 0; v-- {
-		bitIndex := uint(v - 1)
-		bit := (value >> bitIndex) & 1
+	// add single bit when not align with 8
+	for recorder.Width%8 != 0 && valueWidth > 0 {
+		var index uint8 = valueWidth - 1
+		// get bit and add to recorder
+		recorder.AddBit(uint8((value & (1 << index)) >> index))
+	}
 
-		// ensure there's a byte to write into
-		if recorder.Width%8 == 0 {
-			recorder.Result = append(recorder.Result, 0)
-		}
+	// add whole byte
+	for valueWidth >= 8 {
+		var offset uint8 = valueWidth - 8
+		var mask uint64 = 0xFF << offset
+		var newValue byte = byte((value & mask) >> uint64(offset))
+		recorder.Result = append(recorder.Result, newValue)
+	}
 
-		byteIndex := len(recorder.Result) - 1
-		bitOffset := 7 - (recorder.Width % 8) // MSB-first in each byte
-		if bit == 1 {
-			recorder.Result[byteIndex] |= byte(1 << uint(bitOffset))
-		}
-		recorder.Width++
+	// add left bits
+	for valueWidth > 0 {
+		var index uint8 = valueWidth - 1
+		// get bit and add to recorder
+		recorder.AddBit(uint8((value & (1 << index)) >> index))
 	}
 }
