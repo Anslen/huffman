@@ -1,5 +1,8 @@
 package main
 
+// read only
+//
+// don't allow external modification of Result and Width
 type BitsRecorder struct {
 	Result []byte
 	Width  int

@@ -2,7 +2,7 @@ package main
 
 type Compare func(any, any) bool
 
-type priority_queue[T any] struct {
+type Priority_queue[T any] struct {
 	data []T
 	cmp  Compare
 }
@@ -12,24 +12,24 @@ type priority_queue[T any] struct {
 // cmp: return true if a1 has higher priority than a2
 //
 // cmp(a1, a2) == true  => a1 higher priority than a2
-func NewPriorityQueue[T any](cmp Compare) *priority_queue[T] {
-	ret := new(priority_queue[T])
+func NewPriorityQueue[T any](cmp Compare) *Priority_queue[T] {
+	ret := new(Priority_queue[T])
 	ret.cmp = cmp
 	return ret
 }
 
 // check if the priority queue is empty
-func (queue *priority_queue[T]) Empty() bool {
+func (queue *Priority_queue[T]) Empty() bool {
 	return len(queue.data) == 0
 }
 
 // get the size of the priority queue
-func (queue *priority_queue[T]) Size() int {
+func (queue *Priority_queue[T]) Size() int {
 	return len(queue.data)
 }
 
 // add a value to the priority queue
-func (queue *priority_queue[T]) Push(value T) {
+func (queue *Priority_queue[T]) Push(value T) {
 	holeIndex := len(queue.data)
 	parent := (holeIndex - 1) / 2
 	var empty T
@@ -45,7 +45,7 @@ func (queue *priority_queue[T]) Push(value T) {
 // get the top value of the priority queue
 //
 // return false if empty
-func (queue *priority_queue[T]) Top() (retValue T, ok bool) {
+func (queue *Priority_queue[T]) Top() (retValue T, ok bool) {
 	if len(queue.data) == 0 {
 		return retValue, false
 	}
@@ -53,7 +53,7 @@ func (queue *priority_queue[T]) Top() (retValue T, ok bool) {
 }
 
 // get the index of the child to instead the hole
-func insteadChild[T any](queue *priority_queue[T], index int) int {
+func insteadChild[T any](queue *Priority_queue[T], index int) int {
 	length := len(queue.data)
 	left := index*2 + 1
 	right := index*2 + 2
@@ -74,7 +74,7 @@ func insteadChild[T any](queue *priority_queue[T], index int) int {
 }
 
 // adjust the heap from holeIndex with value
-func (queue *priority_queue[T]) adjustHeap(holeIndex int, value T) {
+func (queue *Priority_queue[T]) adjustHeap(holeIndex int, value T) {
 	insteadHoleIndex := insteadChild(queue, holeIndex)
 	for insteadHoleIndex != -1 {
 		queue.data[holeIndex] = queue.data[insteadHoleIndex]
@@ -94,7 +94,7 @@ func (queue *priority_queue[T]) adjustHeap(holeIndex int, value T) {
 // remove and return the top value of the priority queue
 //
 // return false if empty
-func (queue *priority_queue[T]) Pop() (retValue T, ok bool) {
+func (queue *Priority_queue[T]) Pop() (retValue T, ok bool) {
 	if len(queue.data) == 0 {
 		return retValue, false
 	}
