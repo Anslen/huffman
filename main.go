@@ -140,6 +140,7 @@ func main() {
 	}
 }
 
+// write the encoded result to file
 func writeResult(file io.Writer, codes HuffmanCodes, codeWidth uint8, width int64, encode []byte) error {
 	err := writeCodes(file, codes, codeWidth)
 	if err != nil {
@@ -162,6 +163,7 @@ func writeResult(file io.Writer, codes HuffmanCodes, codeWidth uint8, width int6
 	return nil
 }
 
+// write huffman codes to file
 func writeCodes(file io.Writer, codes HuffmanCodes, codeWidth uint8) error {
 	// write all codes
 	recorder := NewBitsRecorder()

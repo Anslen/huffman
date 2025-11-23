@@ -5,12 +5,16 @@ type BitsRecorder struct {
 	Width  int
 }
 
+// create a new bits recorder
 func NewBitsRecorder() (ret *BitsRecorder) {
 	ret = new(BitsRecorder)
 	ret.Result = make([]byte, 0)
 	return ret
 }
 
+// add bits to the recorder
+//
+// write in MSB-first order
 func (recorder *BitsRecorder) Add(value uint64, valueWidth uint8) {
 	// write valueWidth bits of value from little with MSB first
 	if valueWidth == 0 || valueWidth > 64 {

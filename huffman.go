@@ -19,6 +19,7 @@ type huffmanTreeInfo struct {
 	code HuffmanCode
 }
 
+// get frequence of each byte in the string
 func getFrequence(str string) (ret wordsFrequence) {
 	ret = make(wordsFrequence)
 	data := []byte(str)
@@ -28,6 +29,7 @@ func getFrequence(str string) (ret wordsFrequence) {
 	return ret
 }
 
+// build huffman tree from frequence map
 func frequenceToTree(frequence wordsFrequence) (ret *huffmanTree) {
 	// store [char, frequence]
 	priority_queue := NewPriorityQueue[charFrequence](func(a1, a2 any) bool {
@@ -79,6 +81,7 @@ func frequenceToTree(frequence wordsFrequence) (ret *huffmanTree) {
 	return ret
 }
 
+// convert huffman tree to huffman codes
 func treeToCodes(tree *huffmanTree) (ret HuffmanCodes) {
 	ret = make(HuffmanCodes)
 	stack := NewStack[huffmanTreeInfo]()
@@ -117,6 +120,7 @@ func treeToCodes(tree *huffmanTree) (ret HuffmanCodes) {
 	return ret
 }
 
+// build huffman tree from codes map
 func codesToTree(codes HuffmanCodes) (ret *Tree[byte]) {
 	ret = NewTree(byte(0))
 	var current *Tree[byte] = ret
@@ -147,6 +151,7 @@ func codesToTree(codes HuffmanCodes) (ret *Tree[byte]) {
 	return ret
 }
 
+// decode huffman encoded data
 func HuffmanDecode(bin []byte) (ret string) {
 	// Check if input is empty
 	if len(bin) == 0 {
@@ -259,6 +264,7 @@ func HuffmanDecode(bin []byte) (ret string) {
 	return ret
 }
 
+// encode string using huffman coding
 func HuffmanEncode(str string) (codes HuffmanCodes, codeWidth uint8, result []byte, resultWidth int64, ok bool) {
 	if str == "" {
 		return make(HuffmanCodes), 0, make([]byte, 0), 0, true
