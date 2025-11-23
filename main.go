@@ -74,7 +74,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	str, err := os.ReadFile(inputFileName)
+	inputStr, err := os.ReadFile(inputFileName)
 	if err != nil {
 		fmt.Printf("Error: can't open file %v", inputFileName)
 		os.Exit(1)
@@ -82,7 +82,7 @@ func main() {
 
 	if encode_flag {
 		var huffmancodes HuffmanCodes
-		huffmancodes, err := GetHuffmanCodes(string(str))
+		huffmancodes, err := GetHuffmanCodes(string(inputStr))
 		if err != nil {
 			fmt.Printf("Error: generate huffman table faild:\n%v\n", err.Error())
 			os.Exit(1)
@@ -99,42 +99,46 @@ func main() {
 		// write to output
 		var huffmanTableSize int
 		var dataSize int
-		huffmanTableSize, dataSize, err = WriteEncodeToFile(outputFile, string(str), huffmancodes)
+		huffmanTableSize, dataSize, err = WriteEncodeToFile(outputFile, string(inputStr), huffmancodes)
 		if err != nil {
-			fmt.Printf("Error: failed to write encoded data:\n%v\n", err)
+			fmt.Printf("Error: write encoded data failed:\n%v\n", err)
 			os.Exit(1)
 		}
 
 		// print statistic information
-		fmt.Printf("Original length: %d bytes\n", len(str))
+		fmt.Printf("Original length: %d bytes\n", len(inputStr))
 		fmt.Printf("Huffman table size: %d bytes\n", huffmanTableSize)
-		fmt.Printf("Compressed length (data only): %d bytes)\n", dataSize)
+		fmt.Printf("Compressed length (data only): %d bytes\n", dataSize)
 		fmt.Printf("Compressed length (with Huffman table): %d bytes\n", huffmanTableSize+dataSize)
-		if len(str) > 0 {
-			ratio := float64(huffmanTableSize+dataSize) / float64(len(str))
+		if len(inputStr) > 0 {
+			ratio := float64(huffmanTableSize+dataSize) / float64(len(inputStr))
 			fmt.Printf("Compression ratio: %.2f%%\n", ratio*100)
 		}
 	}
 
 	if decode_flag {
-		txt := HuffmanDecode(str)
-		// handle corrupted file
-		// empty text after encode is 11 bytes header
-		if txt == "" && len(str) > 11 {
-			fmt.Printf("Error: file %s is corrupted or not a valid huffman encoded file\n", inputFileName)
+		// decode file
+		var result string
+		result, err = ReadFile(string(inputStr))
+		if err != nil {
+			fmt.Printf("Error: failed to decode file %s:\n%v\n", inputFileName, err)
 			os.Exit(1)
 		}
+
+		// open output file
 		outputFile, err := os.Create(outputFileName)
 		if err != nil {
 			fmt.Printf("Error: can't open output file %s\n", outputFileName)
 			os.Exit(1)
 		}
 		defer outputFile.Close()
-		_, err = outputFile.WriteString(txt)
+
+		_, err = outputFile.WriteString(result)
 		if err != nil {
-			fmt.Printf("Error: failed to write decoded data: %v\n", err)
+			fmt.Printf("Error: to write decoded data failed:\n%v\n", err)
 			os.Exit(1)
 		}
+
 		fmt.Printf("Decoded successfully, result in: %s\n", outputFileName)
 	}
 }

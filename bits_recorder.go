@@ -39,6 +39,7 @@ func (recorder *BitsRecorder) Add(value uint64, valueWidth uint8) {
 		var index uint8 = valueWidth - 1
 		// get bit and add to recorder
 		recorder.AddBit(uint8((value & (1 << index)) >> index))
+		valueWidth--
 	}
 
 	// add whole byte
@@ -47,6 +48,7 @@ func (recorder *BitsRecorder) Add(value uint64, valueWidth uint8) {
 		var mask uint64 = 0xFF << offset
 		var newValue byte = byte((value & mask) >> uint64(offset))
 		recorder.Result = append(recorder.Result, newValue)
+		valueWidth -= 8
 	}
 
 	// add left bits
@@ -54,5 +56,6 @@ func (recorder *BitsRecorder) Add(value uint64, valueWidth uint8) {
 		var index uint8 = valueWidth - 1
 		// get bit and add to recorder
 		recorder.AddBit(uint8((value & (1 << index)) >> index))
+		valueWidth--
 	}
 }

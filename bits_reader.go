@@ -9,10 +9,10 @@ type BitsReader struct {
 // create a new bits reader
 func NewBitsReader(data []byte, width int) (ret *BitsReader) {
 	if data == nil {
-		return ret
+		return nil
 	}
 	if width > len(data)*8 {
-		return ret
+		return nil
 	}
 
 	ret = new(BitsReader)
@@ -25,7 +25,7 @@ func NewBitsReader(data []byte, width int) (ret *BitsReader) {
 // create a new bits reader from a single byte
 func NewBitsReaderFromByte(data byte, width int) (ret *BitsReader) {
 	if width > 8 {
-		return ret
+		return nil
 	}
 
 	ret = new(BitsReader)
@@ -39,7 +39,7 @@ func NewBitsReaderFromByte(data byte, width int) (ret *BitsReader) {
 // create a new bits reader from a uint64 value
 func NewBitsReaderFromUint64(data uint64, width int) (ret *BitsReader) {
 	if width < 0 || width > 64 {
-		return ret
+		return nil
 	}
 
 	slice := make([]byte, 8)
@@ -64,12 +64,12 @@ func (reader *BitsReader) Seek(offset int) {
 	if reader.currentPointer < 0 {
 		reader.currentPointer = 0
 	} else if reader.currentPointer > reader.width {
-		reader.currentPointer = reader.width - 1
+		reader.currentPointer = reader.width
 	}
 }
 
 // get a single bit from the reader, return false if reach the end
-func (reader *BitsReader) GetBit() (ret int8, ok bool) {
+func (reader *BitsReader) GetBit() (ret uint8, ok bool) {
 	if reader.currentPointer == reader.width {
 		return 0, false
 	}
@@ -90,6 +90,15 @@ func (reader *BitsReader) GetUint8() (ret uint8, ok bool) {
 	if reader.width-reader.currentPointer < 8 {
 		return 0, false
 	}
+
+	// if align with byte, directly return
+	if reader.currentPointer%8 == 0 {
+		ret = reader.data[reader.currentPointer/8]
+		reader.currentPointer += 8
+		return ret, true
+	}
+
+	// if not align, read each bit
 	for i := 0; i < 8; i++ {
 		ret <<= 1
 		bit, _ := reader.GetBit()
@@ -100,26 +109,22 @@ func (reader *BitsReader) GetUint8() (ret uint8, ok bool) {
 
 // get an int8 from the reader, return false if not enough bits
 func (reader *BitsReader) GetInt8() (ret int8, ok bool) {
-	if reader.width-reader.currentPointer < 8 {
-		return 0, false
-	}
-	for i := 0; i < 8; i++ {
-		ret <<= 1
-		bit, _ := reader.GetBit()
-		ret |= int8(bit)
-	}
-	return ret, true
+	result, ok := reader.GetUint8()
+	ret = int8(result)
+	return ret, ok
 }
 
 // get a byte from the reader, return false if not enough bits
 func (reader *BitsReader) GetByte() (ret byte, ok bool) {
-	ret, ok = reader.GetUint8()
-	return ret, ok
+	return reader.GetUint8()
 }
 
 // get n bits from the reader as uint64, return false if not enough bits
 func (reader *BitsReader) GetNBits(n int) (ret uint64, ok bool) {
 	if n < 0 || n > 64 {
+		return 0, false
+	}
+	if reader.width-reader.currentPointer < n {
 		return 0, false
 	}
 	for i := 0; i < n; i++ {
@@ -135,23 +140,40 @@ func (reader *BitsReader) GetUint64() (ret uint64, ok bool) {
 	if reader.width-reader.currentPointer < 64 {
 		return 0, false
 	}
-	for i := 0; i < 64; i++ {
+
+	var leftBits = 64
+	// when not align with byte, read each bit
+	for reader.currentPointer%8 != 0 {
+		var bit uint8
+		bit, _ = reader.GetBit()
 		ret <<= 1
-		bit, _ := reader.GetBit()
 		ret |= uint64(bit)
+		leftBits--
+	}
+
+	// read whole byte
+	for leftBits >= 8 {
+		var val byte
+		val, _ = reader.GetByte()
+		ret <<= 8
+		ret |= uint64(val)
+		leftBits -= 8
+	}
+
+	// read left bits
+	for leftBits > 0 {
+		var bit uint8
+		bit, _ = reader.GetBit()
+		ret <<= 1
+		ret |= uint64(bit)
+		leftBits--
 	}
 	return ret, true
 }
 
 // get an int64 from the reader, return false if not enough bits
 func (reader *BitsReader) GetInt64() (ret int64, ok bool) {
-	if reader.width-reader.currentPointer < 64 {
-		return 0, false
-	}
-	for i := 0; i < 64; i++ {
-		ret <<= 1
-		bit, _ := reader.GetBit()
-		ret |= int64(bit)
-	}
-	return ret, true
+	result, ok := reader.GetUint64()
+	ret = int64(result)
+	return ret, ok
 }
