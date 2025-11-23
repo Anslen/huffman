@@ -7,10 +7,12 @@ import (
 )
 
 const HELP_STRING = "pass the file name as arugement to encode or decode\n" +
-	"Usage: huffman -e|-d [-o output_file] input_file\n" +
-	"  -e : encode\n" +
-	"  -d : decode\n" +
-	"  -o : specify output file name (optional)"
+	"Usage: huffman zip|unzip -i input_file [-o output_file]\n" +
+	"  zip        : encode\n" +
+	"  unzip      : decode\n" +
+	"  -i         : specify input file name\n" +
+	"  -o         : specify output file name (optional)\n" +
+	"  help, -h   : display this help message"
 
 func main() {
 	if len(os.Args) == 1 {
@@ -18,44 +20,46 @@ func main() {
 		os.Exit(0)
 	}
 
-	var encode_flag bool
-	var decode_flag bool
+	var encode_flag bool = os.Args[1] == "zip"
+	var decode_flag bool = os.Args[1] == "unzip"
+
+	if (!encode_flag) && (!decode_flag) {
+		fmt.Println("Error: first argument must be 'zip' or 'unzip'")
+		os.Exit(1)
+	}
 
 	var inputFileName string
 	var outputFileName string
 
-	index := 1
+	// read arguments
+	index := 2
 	for index < len(os.Args) {
-		if os.Args[index] == "-h" || os.Args[index] == "--help" {
+		switch os.Args[index] {
+		case "-h", "help":
 			fmt.Println(HELP_STRING)
 			os.Exit(0)
-		} else if os.Args[index] == "-e" {
-			encode_flag = true
-		} else if os.Args[index] == "-d" {
-			decode_flag = true
-		} else if os.Args[index] == "-o" {
+
+		case "-i":
+			if index == len(os.Args)-1 {
+				fmt.Println("Error: -i need argument")
+				os.Exit(1)
+			}
+			inputFileName = os.Args[index+1]
+			index++
+
+		case "-o":
 			if index == len(os.Args)-1 {
 				fmt.Println("Error: -o need argument")
 				os.Exit(1)
 			}
 			outputFileName = os.Args[index+1]
 			index++
-		} else if inputFileName == "" {
-			inputFileName = os.Args[index]
-		} else {
+
+		default:
 			fmt.Printf("Error: unknown argument %s\n", os.Args[index])
 			os.Exit(1)
 		}
 		index++
-	}
-
-	// check flag
-	if !encode_flag && !decode_flag {
-		fmt.Println("Error: need -e or -d flag")
-		os.Exit(1)
-	} else if encode_flag && decode_flag {
-		fmt.Println("Error: can't use -e and -d flag together")
-		os.Exit(1)
 	}
 
 	if outputFileName == "" {
