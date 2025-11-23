@@ -55,7 +55,7 @@ func NewBitsReaderFromUint64(data uint64, width int) (ret *BitsReader) {
 		bit, _ := reader.GetBit()
 		recorder.Add(uint64(bit), 1)
 	}
-	return NewBitsReader(recorder.Result, recorder.Width)
+	return NewBitsReader(recorder.Result(), recorder.Width())
 }
 
 // seek to the given offset

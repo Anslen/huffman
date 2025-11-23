@@ -46,7 +46,7 @@ func readHuffmanTable(reader *BitsReader) (codes HuffmanCodes, err error) {
 		var codeStoreWidth = (codeWidth + 7) / 8 * 8
 		var offset = codeStoreWidth - codeWidth
 		reader.Seek(int(offset))
-		code, codeOk = reader.GetNBits(int((codeWidth + 7) / 8 * 8))
+		code, codeOk = reader.GetNBits(int(codeWidth))
 
 		if !charOk || !codeOk {
 			return nil, fmt.Errorf("failed to read huffman table")

@@ -2,17 +2,24 @@ package main
 
 import "fmt"
 
-type huffmanTree = Tree[charFrequence]
+type huffmanTree = Tree[huffmanNode]
 type HuffmanCodes = map[byte]HuffmanCode
 
 // compare function for priority queue
 func compareHuffmanTree(a1, a2 any) bool {
-	return a1.(*huffmanTree).Value.frequence < a2.(*huffmanTree).Value.frequence
+	if a1.(*huffmanTree).Value.frequence != a2.(*huffmanTree).Value.frequence {
+		return a1.(*huffmanTree).Value.frequence < a2.(*huffmanTree).Value.frequence
+	}
+	if a1.(*huffmanTree).Value.char != a2.(*huffmanTree).Value.char {
+		return a1.(*huffmanTree).Value.char < a2.(*huffmanTree).Value.char
+	}
+	return a1.(*huffmanTree).Value.index < a2.(*huffmanTree).Value.index
 }
 
-type charFrequence struct {
+type huffmanNode struct {
 	char      byte
 	frequence int
+	index     int
 }
 
 type HuffmanCode struct {
@@ -34,7 +41,7 @@ func frequenceToTree(frequence map[byte]int) (ret *huffmanTree) {
 	// if single char, return tree with single node
 	if len(frequence) == 1 {
 		for char, frequence := range frequence {
-			return NewTree(charFrequence{char, frequence})
+			return NewTree(huffmanNode{char, frequence, 0})
 		}
 	}
 
@@ -43,19 +50,22 @@ func frequenceToTree(frequence map[byte]int) (ret *huffmanTree) {
 
 	// add each char frequence to priority queue
 	for char, frequence := range frequence {
-		priority_queue.Push(NewTree(charFrequence{char, frequence}))
+		priority_queue.Push(NewTree(huffmanNode{char, frequence, 0}))
 	}
 
+	// node index
+	var index int = 0
 	// build tree
 	for priority_queue.Size() > 1 {
 		left, _ := priority_queue.Pop()
 		right, _ := priority_queue.Pop()
 
 		// create new internal node
-		var parent *huffmanTree = NewTree(charFrequence{char: 0, frequence: left.Value.frequence + right.Value.frequence})
+		var parent *huffmanTree = NewTree(huffmanNode{char: 0, frequence: left.Value.frequence + right.Value.frequence, index: index})
 		parent.Left = left
 		parent.Right = right
 		priority_queue.Push(parent)
+		index++
 	}
 
 	// return first tree
@@ -288,5 +298,5 @@ func HuffmanEncode(str string, codes HuffmanCodes) (result []byte, resultWidth i
 		resultWidth += int64(huffman.Width)
 	}
 
-	return bitsRecorder.Result, resultWidth
+	return bitsRecorder.Result(), resultWidth
 }

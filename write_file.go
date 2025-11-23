@@ -57,7 +57,7 @@ func writeHuffmanTable(file io.Writer, codes HuffmanCodes) (size int, err error)
 	recorder.Add(0, 8)
 
 	// write to file
-	size, err = file.Write(recorder.Result)
+	size, err = file.Write(recorder.Result())
 	if err != nil {
 		err = fmt.Errorf("write huffman table to file failed: %w", err)
 		return size, err
@@ -85,20 +85,22 @@ func writeString(file io.Writer, str string, codes HuffmanCodes) (size int, err 
 		dataRecorder.Add(huffman.Code, huffman.Width)
 		dataWidth += int64(huffman.Width)
 	}
+	//fmt.Printf("Add byte %v:\nCode: %b\nWidth: %v\n", char, huffman.Code, huffman.Width)
 
+	fmt.Printf("%v bits added, len(recorder.Result): %v\n", dataWidth, len(dataRecorder.Result()))
 	var widthRecorder *BitsRecorder = NewBitsRecorder()
 	// write width info
 	widthRecorder.Add(uint64(dataWidth), 64)
 
 	// write to file
-	size, err = file.Write(widthRecorder.Result)
+	size, err = file.Write(widthRecorder.Result())
 	if err != nil {
 		err = fmt.Errorf("write encoded data width to file failed:\n%w", err)
 		return size, err
 	}
 	var widthWritenLength = size
 
-	size, err = file.Write(dataRecorder.Result)
+	size, err = file.Write(dataRecorder.Result())
 	if err != nil {
 		err = fmt.Errorf("write encoded data to file failed:\n%w", err)
 		return size + widthWritenLength, err
