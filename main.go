@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 )
 
@@ -82,39 +81,39 @@ func main() {
 	}
 
 	if encode_flag {
-		codes, codeWidth, result, resultWidth, ok := HuffmanEncode(string(str))
-		if !ok {
-			fmt.Println("Error: huffman code longer than 64 bits")
+		var huffmancodes HuffmanCodes
+		huffmancodes, err := GetHuffmanCodes(string(str))
+		if err != nil {
+			fmt.Printf("Error: generate huffman table faild:\n%v\n", err.Error())
 			os.Exit(1)
 		}
 
-		// calculate compression ratio
-		originalBytes := len(str)
-		compressedDataBytes := int((resultWidth + 7) / 8)
-		codeTableBytes := (len(codes)+1)*int(2+codeWidth/8) + 1 // each code: 1 byte char + codeWidth/8 bytes code + 1 byte width
-		// 8 empty bytes when storing width
-		compressedWithCodesBytes := codeTableBytes + 8 + compressedDataBytes
-
-		fmt.Printf("Original length: %d bytes\n", originalBytes)
-		fmt.Printf("Compressed length (data only): %d bytes (%d bits)\n", compressedDataBytes, resultWidth)
-		fmt.Printf("Compressed length (with Huffman table): %d bytes\n", compressedWithCodesBytes)
-		if originalBytes > 0 {
-			ratio := float64(compressedWithCodesBytes) / float64(originalBytes)
-			fmt.Printf("Compression ratio: %.2f%%\n", ratio*100)
-		}
-
-		// store result
+		// open output file
 		outputFile, err := os.Create(outputFileName)
 		if err != nil {
 			fmt.Printf("Error: can't open output file %s\n", outputFileName)
 			os.Exit(1)
 		}
 		defer outputFile.Close()
-		if err := writeResult(outputFile, codes, codeWidth, resultWidth, result); err != nil {
-			fmt.Printf("Error: failed to write encoded data: %v\n", err)
+
+		// write to output
+		var huffmanTableSize int
+		var dataSize int
+		huffmanTableSize, dataSize, err = WriteEncodeToFile(outputFile, string(str), huffmancodes)
+		if err != nil {
+			fmt.Printf("Error: failed to write encoded data:\n%v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Encoded successfully, result in: %s\n", outputFileName)
+
+		// print statistic information
+		fmt.Printf("Original length: %d bytes\n", len(str))
+		fmt.Printf("Huffman table size: %d bytes\n", huffmanTableSize)
+		fmt.Printf("Compressed length (data only): %d bytes)\n", dataSize)
+		fmt.Printf("Compressed length (with Huffman table): %d bytes\n", huffmanTableSize+dataSize)
+		if len(str) > 0 {
+			ratio := float64(huffmanTableSize+dataSize) / float64(len(str))
+			fmt.Printf("Compression ratio: %.2f%%\n", ratio*100)
+		}
 	}
 
 	if decode_flag {
@@ -138,45 +137,4 @@ func main() {
 		}
 		fmt.Printf("Decoded successfully, result in: %s\n", outputFileName)
 	}
-}
-
-// write the encoded result to file
-func writeResult(file io.Writer, codes HuffmanCodes, codeWidth uint8, width int64, encode []byte) error {
-	err := writeCodes(file, codes, codeWidth)
-	if err != nil {
-		return fmt.Errorf("failed to write huffman codes: %w", err)
-	}
-
-	// write zero and width info
-	recorder := NewBitsRecorder()
-	recorder.Add(uint64(0), 16+codeWidth)
-	recorder.Add(uint64(width), 64)
-	_, err = file.Write(recorder.Result)
-	if err != nil {
-		return fmt.Errorf("failed to write metadata: %w", err)
-	}
-
-	_, err = file.Write(encode)
-	if err != nil {
-		return fmt.Errorf("failed to write encoded data: %w", err)
-	}
-	return nil
-}
-
-// write huffman codes to file
-func writeCodes(file io.Writer, codes HuffmanCodes, codeWidth uint8) error {
-	// write all codes
-	recorder := NewBitsRecorder()
-	recorder.Add(uint64(codeWidth), 8)
-	for key, value := range codes {
-		recorder.Add(uint64(key), 8)
-		recorder.Add(value.Code, codeWidth)
-		recorder.Add(uint64(value.Width), 8)
-	}
-
-	_, err := file.Write(recorder.Result)
-	if err != nil {
-		return fmt.Errorf("failed to write codes table: %w", err)
-	}
-	return nil
 }
