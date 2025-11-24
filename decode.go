@@ -3,12 +3,22 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
 type DecodeSize struct {
 	Original int // in bytes
 	Decoded  int // in bytes
+}
+
+type BatchDecodeResult struct {
+	InputPath    string
+	OutputPath   string
+	TotalCount   int
+	SuccessCount int
+	Time         time.Duration
+	Errors       []BatchError
 }
 
 func Decode(inputPath, outptuPath string) (decodeSize DecodeSize, decodeTime time.Duration, err error) {
@@ -56,6 +66,54 @@ func Decode(inputPath, outptuPath string) (decodeSize DecodeSize, decodeTime tim
 	}
 	decodeTime = time.Since(startTime)
 	return decodeSize, decodeTime, nil
+}
+
+func BatchDecode(inputPath string, outputPath string) (result BatchDecodeResult, err error) {
+	// record start time
+	var startTime time.Time = time.Now()
+	var errors []BatchError = make([]BatchError, 0)
+
+	// normalize input & output paths
+	inputPath = filepath.Clean(inputPath)
+	outputPath = filepath.Clean(outputPath)
+
+	// collect input files
+	var inputFiles []string
+	var getFilesErrors []BatchError
+	inputFiles, getFilesErrors, err = GetFilesInDir(inputPath)
+	if err != nil {
+		return result, fmt.Errorf("get input files failed: %v", err.Error())
+	}
+	errors = append(errors, getFilesErrors...)
+
+	// get output paths for input files
+	var outputPaths []string
+	var getOutputPathErrors []BatchError
+	outputPaths, getOutputPathErrors = GetOutputPaths(inputFiles, outputPath, "txt")
+	errors = append(errors, getOutputPathErrors...)
+
+	// process each file
+	var success int = 0
+	for i, inputPath := range inputFiles {
+		// decode
+		_, _, decErr := Decode(inputPath, outputPaths[i])
+		if decErr != nil {
+			errors = append(errors, BatchError{Path: inputPath, Err: decErr})
+			continue
+		}
+		success++
+	}
+
+	// fill result
+	result = BatchDecodeResult{
+		InputPath:    inputPath,
+		OutputPath:   outputPath,
+		TotalCount:   len(inputFiles),
+		SuccessCount: success,
+		Time:         time.Since(startTime),
+		Errors:       errors,
+	}
+	return result, nil
 }
 
 // read huffman table from reader

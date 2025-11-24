@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -16,6 +17,20 @@ type EncodeSize struct {
 type EncodeTime struct {
 	CodeGenTime   time.Duration // in milliseconds
 	WriteFileTime time.Duration // in milliseconds
+}
+
+type BatchError struct {
+	Path string
+	Err  error
+}
+
+type BatchEncodeResult struct {
+	InputPath    string
+	OutputPath   string
+	TotalCount   int
+	SuccessCount int
+	Time         time.Duration
+	Errors       []BatchError
 }
 
 // write to output file
@@ -39,14 +54,14 @@ func Encode(inputPath, outputPath string) (encodeSize EncodeSize, encodeTime Enc
 	var text []byte
 	text, err = os.ReadFile(inputPath)
 	if err != nil {
-		return encodeSize, encodeTime, fmt.Errorf("open input file %s failed:\n%v", outputPath, err.Error())
+		return encodeSize, encodeTime, fmt.Errorf("open input file %s failed: %v", inputPath, err.Error())
 	}
 
 	// get huffman codes
 	var codes HuffmanCodes
 	codes, err = GetHuffmanCodes(string(text))
 	if err != nil {
-		return encodeSize, encodeTime, fmt.Errorf("generate huffman codes failed:\n%v", err.Error())
+		return encodeSize, encodeTime, fmt.Errorf("generate huffman codes failed: %v", err.Error())
 	}
 	var codeGenTime time.Time = time.Now()
 
@@ -54,7 +69,7 @@ func Encode(inputPath, outputPath string) (encodeSize EncodeSize, encodeTime Enc
 	var outputFile *os.File
 	outputFile, err = OpenFile(outputPath)
 	if err != nil {
-		return encodeSize, encodeTime, fmt.Errorf("open output file %s failed:\n%v", outputPath, err.Error())
+		return encodeSize, encodeTime, fmt.Errorf("open output file %s failed: %v", outputPath, err.Error())
 	}
 	defer outputFile.Close()
 
@@ -84,6 +99,54 @@ func Encode(inputPath, outputPath string) (encodeSize EncodeSize, encodeTime Enc
 		WriteFileTime: writeFileTime.Sub(codeGenTime),
 	}
 	return encodeSize, encodeTime, err
+}
+
+func BatchEncode(inputPath string, outputPath string) (result BatchEncodeResult, err error) {
+	// record start time
+	var startTime time.Time = time.Now()
+	var errors []BatchError = make([]BatchError, 0)
+
+	// normalize input & output paths
+	inputPath = filepath.Clean(inputPath)
+	outputPath = filepath.Clean(outputPath)
+
+	// collect input files
+	var inputFiles []string
+	var getFilesErrors []BatchError
+	inputFiles, getFilesErrors, err = GetFilesInDir(inputPath)
+	if err != nil {
+		return result, fmt.Errorf("get input files failed: %v", err.Error())
+	}
+	errors = append(errors, getFilesErrors...)
+
+	// get output paths for input files
+	var outputPaths []string
+	var getOutputPathErrors []BatchError
+	outputPaths, getOutputPathErrors = GetOutputPaths(inputFiles, outputPath, "bin")
+	errors = append(errors, getOutputPathErrors...)
+
+	// process each file
+	var success int = 0
+	for i, inputPath := range inputFiles {
+		// encode
+		_, _, encErr := Encode(inputPath, outputPaths[i])
+		if encErr != nil {
+			errors = append(errors, BatchError{Path: inputPath, Err: encErr})
+			continue
+		}
+		success++
+	}
+
+	// fill result
+	result = BatchEncodeResult{
+		InputPath:    inputPath,
+		OutputPath:   outputPath,
+		TotalCount:   len(inputFiles),
+		SuccessCount: success,
+		Time:         time.Since(startTime),
+		Errors:       errors,
+	}
+	return result, nil
 }
 
 // write huffman table to file
