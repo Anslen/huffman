@@ -8,12 +8,13 @@ import (
 )
 
 const HELP_STRING = "pass the file name as arugement to encode or decode\n" +
-	"Usage: huffman zip|unzip [-b] -i <input_path> [-o <output_file>]\n" +
+	"Usage: huffman zip|unzip [-b] [-s] -i <input_path> [-o <output_file>]\n" +
 	"  zip        : encode\n" +
 	"  unzip      : decode\n" +
 	"  -i         : specify input file name\n" +
 	"  -o         : specify output file name (optional)\n" +
 	"  -b         : batch mode (path should be directory)\n" +
+	"  -s 	      : silent mode, do not print progress information\n" +
 	"  help, -h   : display this help message"
 
 // processPath converts relative output path to absolute path in the same directory as input file
@@ -43,6 +44,7 @@ func main() {
 	var encode_flag bool = os.Args[1] == "zip"
 	var decode_flag bool = os.Args[1] == "unzip"
 	var batch_flag bool = false
+	var silent_flag bool = false
 
 	if (!encode_flag) && (!decode_flag) {
 		fmt.Println("Error: first argument must be 'zip' or 'unzip'")
@@ -78,6 +80,9 @@ func main() {
 
 		case "-b":
 			batch_flag = true
+
+		case "-s":
+			silent_flag = true
 
 		default:
 			fmt.Printf("Error: unknown argument %s\n", os.Args[index])
@@ -132,11 +137,13 @@ func main() {
 
 			// print summary
 			fmt.Printf("\nBatch compressing completed.\n")
-			fmt.Printf("Input path: %s", result.InputPath)
-			fmt.Printf("\nOutput path: %s\n", outputPath)
-			fmt.Printf("Total files: %d\n", result.TotalCount)
-			fmt.Printf("Successful: %d\n", result.SuccessCount)
-			fmt.Printf("Time taken: %.2fs\n", float64(result.Time.Milliseconds())/1000)
+			if !silent_flag {
+				fmt.Printf("Input path: %s", result.InputPath)
+				fmt.Printf("\nOutput path: %s\n", outputPath)
+				fmt.Printf("Total files: %d\n", result.TotalCount)
+				fmt.Printf("Successful: %d\n", result.SuccessCount)
+				fmt.Printf("Time taken: %.2fs\n", float64(result.Time.Milliseconds())/1000)
+			}
 		} else {
 			fmt.Printf("Compressing...\n")
 
@@ -161,19 +168,21 @@ func main() {
 
 			// print statistic information
 			fmt.Printf("\nEncode successful, result in: %v\n\n", outputPath)
-			fmt.Printf("Original size: %d bytes\n", originalSize)
-			fmt.Printf("Huffman table size: %d bytes\n", huffmanTableSize)
-			fmt.Printf("Compressed size (data only): %d bytes\n", encodedDataSize)
-			fmt.Printf("Compressed size (with Huffman table): %d bytes\n", encodedSize)
-			if originalSize > 0 {
-				ratio := float64(encodedSize) / float64(originalSize)
-				fmt.Printf("Compression ratio: %.2f%%\n\n", ratio*100)
+			if !silent_flag {
+				fmt.Printf("Original size: %d bytes\n", originalSize)
+				fmt.Printf("Huffman table size: %d bytes\n", huffmanTableSize)
+				fmt.Printf("Compressed size (data only): %d bytes\n", encodedDataSize)
+				fmt.Printf("Compressed size (with Huffman table): %d bytes\n", encodedSize)
+				if originalSize > 0 {
+					ratio := float64(encodedSize) / float64(originalSize)
+					fmt.Printf("Compression ratio: %.2f%%\n\n", ratio*100)
+				}
+				totalTime := codeGenTime + writeTime
+				fmt.Printf("Time: Huffman table generation: %.2fs, File writing: %.2fs, Total: %.2fs\n",
+					float64(codeGenTime.Milliseconds())/1000,
+					float64(writeTime.Milliseconds())/1000,
+					float64(totalTime.Milliseconds())/1000)
 			}
-			totalTime := codeGenTime + writeTime
-			fmt.Printf("Time: Huffman table generation: %.2fs, File writing: %.2fs, Total: %.2fs\n",
-				float64(codeGenTime.Milliseconds())/1000,
-				float64(writeTime.Milliseconds())/1000,
-				float64(totalTime.Milliseconds())/1000)
 		}
 	}
 
@@ -196,11 +205,13 @@ func main() {
 
 			// print summary
 			fmt.Printf("\nBatch decompressing completed.\n")
-			fmt.Printf("Input path: %s", result.InputPath)
-			fmt.Printf("\nOutput path: %s\n", outputPath)
-			fmt.Printf("Total files: %d\n", result.TotalCount)
-			fmt.Printf("Successful: %d\n", result.SuccessCount)
-			fmt.Printf("Time taken: %.2fs\n", float64(result.Time.Milliseconds())/1000)
+			if !silent_flag {
+				fmt.Printf("Input path: %s", result.InputPath)
+				fmt.Printf("\nOutput path: %s\n", outputPath)
+				fmt.Printf("Total files: %d\n", result.TotalCount)
+				fmt.Printf("Successful: %d\n", result.SuccessCount)
+				fmt.Printf("Time taken: %.2fs\n", float64(result.Time.Milliseconds())/1000)
+			}
 		} else {
 			fmt.Printf("Decompressing...\n")
 
@@ -213,9 +224,11 @@ func main() {
 			}
 
 			fmt.Printf("\nDecoded successfully, result in: %s\n", outputPath)
-			fmt.Printf("Original size: %d bytes\n", decodeSize.Original)
-			fmt.Printf("Decompressed size: %d bytes\n", decodeSize.Decoded)
-			fmt.Printf("Time: Decoding: %.2fs\n", float64(decodeTime.Milliseconds())/1000)
+			if !silent_flag {
+				fmt.Printf("Original size: %d bytes\n", decodeSize.Original)
+				fmt.Printf("Decompressed size: %d bytes\n", decodeSize.Decoded)
+				fmt.Printf("Time: Decoding: %.2fs\n", float64(decodeTime.Milliseconds())/1000)
+			}
 		}
 	}
 }
