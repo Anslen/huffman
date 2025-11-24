@@ -3,9 +3,24 @@ package main
 import (
 	"fmt"
 	"io"
+	"os"
+	"time"
 )
 
+type EncodeSize struct {
+	orininal     int // in bytes
+	HuffmanTable int // in bytes
+	EncodedData  int // in bytes
+}
+
+type EncodeTime struct {
+	CodeGenTime   time.Duration // in milliseconds
+	WriteFileTime time.Duration // in milliseconds
+}
+
 // write to output file
+//
+// return input size and output size(in bytes) and ok
 //
 // format:
 //
@@ -16,17 +31,59 @@ import (
 //	1 byte   : 0 (end of table)
 //	8 bytes  : encoded data width (in bits)
 //	n bytes  : encoded data
-func WriteEncodeToFile(file io.Writer, str string, codes HuffmanCodes) (huffmanTableSize int, dataSize int, err error) {
-	// write huffman table
-	huffmanTableSize, err = writeHuffmanTable(file, codes)
+func Encode(inputPath, outputPath string) (encodeSize EncodeSize, encodeTime EncodeTime, err error) {
+	// record start time
+	var startTime time.Time = time.Now()
+
+	// read input file
+	var text []byte
+	text, err = os.ReadFile(inputPath)
 	if err != nil {
-		return huffmanTableSize, huffmanTableSize, err
+		return encodeSize, encodeTime, fmt.Errorf("open input file %s failed:\n%v", outputPath, err.Error())
+	}
+
+	// get huffman codes
+	var codes HuffmanCodes
+	codes, err = GetHuffmanCodes(string(text))
+	if err != nil {
+		return encodeSize, encodeTime, fmt.Errorf("generate huffman codes failed:\n%v", err.Error())
+	}
+	var codeGenTime time.Time = time.Now()
+
+	// create output directory and file
+	var outputFile *os.File
+	outputFile, err = OpenFile(outputPath)
+	if err != nil {
+		return encodeSize, encodeTime, fmt.Errorf("open output file %s failed:\n%v", outputPath, err.Error())
+	}
+	defer outputFile.Close()
+
+	// write huffman table
+	var huffmanTableSize int
+	huffmanTableSize, err = writeHuffmanTable(outputFile, codes)
+	if err != nil {
+		return encodeSize, encodeTime, err
 	}
 
 	// write string
-	dataSize, err = writeString(file, str, codes)
+	var dataSize int
+	dataSize, err = writeString(outputFile, text, codes)
+	if err != nil {
+		return encodeSize, encodeTime, err
+	}
+	var writeFileTime time.Time = time.Now()
 
-	return huffmanTableSize, dataSize, err
+	// write size and time record
+	encodeSize = EncodeSize{
+		orininal:     len(text),
+		HuffmanTable: huffmanTableSize,
+		EncodedData:  dataSize,
+	}
+	encodeTime = EncodeTime{
+		CodeGenTime:   codeGenTime.Sub(startTime),
+		WriteFileTime: writeFileTime.Sub(codeGenTime),
+	}
+	return encodeSize, encodeTime, err
 }
 
 // write huffman table to file
@@ -73,14 +130,14 @@ func writeHuffmanTable(file io.Writer, codes HuffmanCodes) (size int, err error)
 //
 //	8 bytes  : encoded data width (in bits)
 //	n bytes  : encoded data
-func writeString(file io.Writer, str string, codes HuffmanCodes) (size int, err error) {
+func writeString(file io.Writer, text []byte, codes HuffmanCodes) (size int, err error) {
 	// encode data
 	var dataRecorder *BitsRecorder = NewBitsRecorder()
 	// encoded data width (in bits)
 	var dataWidth int64 = 0
 
 	// write each byte to bits recorder
-	for _, char := range []byte(str) {
+	for _, char := range text {
 		var huffman HuffmanCode = codes[char]
 		dataRecorder.Add(huffman.Code, huffman.Width)
 		dataWidth += int64(huffman.Width)

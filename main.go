@@ -15,46 +15,22 @@ const HELP_STRING = "pass the file name as arugement to encode or decode\n" +
 	"  -o         : specify output file name (optional)\n" +
 	"  help, -h   : display this help message"
 
-// convertToAbsolutePath converts relative output path to absolute path in the same directory as input file
+// processPath converts relative output path to absolute path in the same directory as input file
+//
 // if inputPath is absolute and outputPath is relative, place output file in input file's directory
-func convertToAbsolutePath(inputPath, outputPath string) string {
-	// Check if output path is already absolute
-	if filepath.IsAbs(outputPath) {
-		return outputPath
+func processPath(inputPath, outputPath string) (string, string) {
+
+	// Clean the paths
+	inputPath = filepath.Clean(inputPath)
+
+	if filepath.IsAbs(inputPath) && !filepath.IsAbs(outputPath) {
+		inputDir := filepath.Dir(inputPath)
+		outputAbsPath := filepath.Clean(filepath.Join(inputDir, outputPath))
+		return inputPath, outputAbsPath
+	} else {
+		outputPath = filepath.Clean(outputPath)
+		return inputPath, outputPath
 	}
-
-	// Check if input path is absolute
-	if !filepath.IsAbs(inputPath) {
-		// Both are relative, return output path as is
-		return outputPath
-	}
-
-	// Input is absolute, output is relative
-	// Get the directory of input file
-	inputDir := filepath.Dir(inputPath)
-
-	// Join input directory with relative output path
-	// This handles cases like "../file" correctly
-	absOutputPath := filepath.Join(inputDir, outputPath)
-
-	return absOutputPath
-}
-
-// ensureOutputDirExists creates the directory for output file if it doesn't exist
-func ensureOutputDirExists(outputPath string) error {
-	outputDir := filepath.Dir(outputPath)
-
-	// Check if directory exists
-	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
-		// Create directory with all parent directories
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
-			return fmt.Errorf("failed to create output directory %s: %v", outputDir, err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("failed to check output directory %s: %v", outputDir, err)
-	}
-
-	return nil
 }
 
 func main() {
@@ -71,8 +47,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	var inputFileName string
-	var outputFileName string
+	var inputPath string
+	var outputPath string
 
 	// read arguments
 	index := 2
@@ -87,7 +63,7 @@ func main() {
 				fmt.Println("Error: -i need argument")
 				os.Exit(1)
 			}
-			inputFileName = os.Args[index+1]
+			inputPath = os.Args[index+1]
 			index++
 
 		case "-o":
@@ -95,7 +71,7 @@ func main() {
 				fmt.Println("Error: -o need argument")
 				os.Exit(1)
 			}
-			outputFileName = os.Args[index+1]
+			outputPath = os.Args[index+1]
 			index++
 
 		default:
@@ -105,72 +81,52 @@ func main() {
 		index++
 	}
 
-	if outputFileName == "" {
+	if outputPath == "" {
 		if encode_flag {
-			outputFileName = "out.bin"
+			outputPath = "out.bin"
 		} else if decode_flag {
-			outputFileName = "out.txt"
+			outputPath = "out.txt"
 		}
 	}
 
 	// Convert relative output path to absolute if input is absolute
-	outputFileName = convertToAbsolutePath(inputFileName, outputFileName)
+	inputPath, outputPath = processPath(inputPath, outputPath)
 
-	if inputFileName == "" {
+	if inputPath == "" {
 		fmt.Println("Error: input file required")
-		os.Exit(1)
-	}
-
-	inputStr, err := os.ReadFile(inputFileName)
-	if err != nil {
-		fmt.Printf("Error: can't open file %v", inputFileName)
 		os.Exit(1)
 	}
 
 	if encode_flag {
 		fmt.Printf("Compressing...")
-		var huffmancodes HuffmanCodes
-		startTime := time.Now()
-		huffmancodes, err := GetHuffmanCodes(string(inputStr))
-		if err != nil {
-			fmt.Printf("Error: generate huffman table faild:\n%v\n", err.Error())
-			os.Exit(1)
-		}
-		codeGenTime := time.Since(startTime)
 
-		// Ensure output directory exists
-		if err := ensureOutputDirExists(outputFileName); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		// open output file
-		outputFile, err := os.Create(outputFileName)
-		if err != nil {
-			fmt.Printf("Error: can't open output file %s\n", outputFileName)
-			os.Exit(1)
-		}
-		defer outputFile.Close()
-
-		// write to output
-		var huffmanTableSize int
-		var dataSize int
-		writeStartTime := time.Now()
-		huffmanTableSize, dataSize, err = WriteEncodeToFile(outputFile, string(inputStr), huffmancodes)
+		// encode file
+		var encodeSize EncodeSize
+		var encodeTime EncodeTime
+		encodeSize, encodeTime, err := Encode(inputPath, outputPath)
 		if err != nil {
 			fmt.Printf("Error: write encoded data failed:\n%v\n", err)
 			os.Exit(1)
 		}
-		writeTime := time.Since(writeStartTime)
+
+		// read size information
+		var originalSize int = encodeSize.orininal
+		var huffmanTableSize int = encodeSize.HuffmanTable
+		var encodedDataSize int = encodeSize.EncodedData
+		var encodedSize int = huffmanTableSize + encodedDataSize
+
+		// read time information
+		var codeGenTime time.Duration = encodeTime.CodeGenTime
+		var writeTime time.Duration = encodeTime.WriteFileTime
 
 		// print statistic information
-		fmt.Printf("\nEncode successful, result in: %v\n\n", outputFileName)
-		fmt.Printf("Original length: %d bytes\n", len(inputStr))
+		fmt.Printf("\nEncode successful, result in: %v\n\n", outputPath)
+		fmt.Printf("Original size: %d bytes\n", originalSize)
 		fmt.Printf("Huffman table size: %d bytes\n", huffmanTableSize)
-		fmt.Printf("Compressed length (data only): %d bytes\n", dataSize)
-		fmt.Printf("Compressed length (with Huffman table): %d bytes\n", huffmanTableSize+dataSize)
-		if len(inputStr) > 0 {
-			ratio := float64(huffmanTableSize+dataSize) / float64(len(inputStr))
+		fmt.Printf("Compressed size (data only): %d bytes\n", encodedDataSize)
+		fmt.Printf("Compressed size (with Huffman table): %d bytes\n", encodedSize)
+		if originalSize > 0 {
+			ratio := float64(encodedSize) / float64(originalSize)
 			fmt.Printf("Compression ratio: %.2f%%\n\n", ratio*100)
 		}
 		totalTime := codeGenTime + writeTime
@@ -183,37 +139,18 @@ func main() {
 	if decode_flag {
 		// decode file
 		fmt.Printf("Decompressing...")
-		var result string
-		decodeStartTime := time.Now()
-		result, err = ReadFile(string(inputStr))
+
+		var decodeSize DecodeSize
+		var decodeTime time.Duration
+		decodeSize, decodeTime, err := Decode(inputPath, outputPath)
 		if err != nil {
-			fmt.Printf("Error: failed to decode file %s:\n%v\n", inputFileName, err)
-			os.Exit(1)
-		}
-		decodeTime := time.Since(decodeStartTime)
-
-		// Ensure output directory exists
-		if err := ensureOutputDirExists(outputFileName); err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Printf("Error: failed to decode file %s:\n%v\n", inputPath, err)
 			os.Exit(1)
 		}
 
-		// open output file
-		outputFile, err := os.Create(outputFileName)
-		if err != nil {
-			fmt.Printf("Error: can't open output file %s\n", outputFileName)
-			os.Exit(1)
-		}
-		defer outputFile.Close()
-
-		_, err = outputFile.WriteString(result)
-		if err != nil {
-			fmt.Printf("Error: to write decoded data failed:\n%v\n", err)
-			os.Exit(1)
-		}
-
-		fmt.Printf("\nDecoded successfully, result in: %s\n", outputFileName)
-		fmt.Printf("Decompressed length: %d bytes\n", len(result))
+		fmt.Printf("\nDecoded successfully, result in: %s\n", outputPath)
+		fmt.Printf("Original size: %d bytes\n", decodeSize.Original)
+		fmt.Printf("Decompressed size: %d bytes\n", decodeSize.Decoded)
 		fmt.Printf("Time: Decoding: %.2fs\n", float64(decodeTime.Milliseconds())/1000)
 	}
 }

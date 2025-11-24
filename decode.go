@@ -1,20 +1,61 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"time"
+)
 
-func ReadFile(str string) (result string, err error) {
-	var bytes []byte = []byte(str)
+type DecodeSize struct {
+	Original int // in bytes
+	Decoded  int // in bytes
+}
+
+func Decode(inputPath, outptuPath string) (decodeSize DecodeSize, decodeTime time.Duration, err error) {
+	// record start time
+	var startTime time.Time = time.Now()
+
+	// read input file
+	var bytes []byte
+	bytes, err = os.ReadFile(inputPath)
+	if err != nil {
+		return decodeSize, decodeTime, fmt.Errorf("open input file %s failed:\n%v", inputPath, err.Error())
+	}
 	var reader *BitsReader = NewBitsReader(bytes, len(bytes)*8)
 
 	// read huffman table
 	var codes HuffmanCodes
 	codes, err = readHuffmanTable(reader)
 	if err != nil {
-		return "", err
+		return decodeSize, decodeTime, fmt.Errorf("read huffman table failed:\n%v", err.Error())
 	}
 
-	// read string
-	return readString(reader, codesToTree(codes))
+	// build huffman tree and read string
+	var tree *Tree[byte] = GetHuffmanTree(codes)
+	var text []byte
+	text, err = readString(reader, tree)
+
+	// open output file
+	var outputFile *os.File
+	outputFile, err = OpenFile(outptuPath)
+	if err != nil {
+		return decodeSize, decodeTime, fmt.Errorf("open output file %s failed:\n%v", outptuPath, err.Error())
+	}
+	defer outputFile.Close()
+
+	// write text to output file
+	_, err = outputFile.Write(text)
+	if err != nil {
+		return decodeSize, decodeTime, fmt.Errorf("write decoded data to file %s failed:\n%v", outptuPath, err.Error())
+	}
+
+	// record size and time
+	decodeSize = DecodeSize{
+		Original: len(bytes),
+		Decoded:  len(text),
+	}
+	decodeTime = time.Since(startTime)
+	return decodeSize, decodeTime, nil
 }
 
 // read huffman table from reader
@@ -59,21 +100,21 @@ func readHuffmanTable(reader *BitsReader) (codes HuffmanCodes, err error) {
 }
 
 // read string from reader
-func readString(reader *BitsReader, tree *Tree[byte]) (str string, err error) {
+func readString(reader *BitsReader, tree *Tree[byte]) (text []byte, err error) {
 	// read data width
 	var dataWidth uint64
 	dataWidth, ok := reader.GetUint64()
 	if !ok {
-		return "", fmt.Errorf("failed to read data width")
+		return nil, fmt.Errorf("failed to read data width")
 	}
 
 	var currentNode *Tree[byte] = tree
-	var ret []byte = make([]byte, 0)
+	text = make([]byte, 0)
 	for i := uint64(0); i < dataWidth; i++ {
 		var bit uint8
 		bit, ok = reader.GetBit()
 		if !ok {
-			return "", fmt.Errorf("failed to read data:\nno enough bits")
+			return nil, fmt.Errorf("failed to read data:\nno enough bits")
 		}
 
 		// move acrodding to bit
@@ -85,19 +126,19 @@ func readString(reader *BitsReader, tree *Tree[byte]) (str string, err error) {
 
 		// validate currentNode before accessing children
 		if currentNode == nil {
-			return "", fmt.Errorf("invalid encoding data: reached nil node")
+			return nil, fmt.Errorf("invalid encoding data: reached nil node")
 		}
 
 		// add data to ret when reach leaf node
 		if currentNode.Left == nil && currentNode.Right == nil {
-			ret = append(ret, currentNode.Value)
+			text = append(text, currentNode.Value)
 			currentNode = tree
 		}
 	}
 
 	// check reach end
 	if currentNode != tree {
-		return "", fmt.Errorf("invalid encoding data")
+		return nil, fmt.Errorf("invalid encoding data")
 	}
-	return string(ret), nil
+	return text, nil
 }
