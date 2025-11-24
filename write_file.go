@@ -85,7 +85,6 @@ func writeString(file io.Writer, str string, codes HuffmanCodes) (size int, err 
 		dataRecorder.Add(huffman.Code, huffman.Width)
 		dataWidth += int64(huffman.Width)
 	}
-	//fmt.Printf("Add byte %v:\nCode: %b\nWidth: %v\n", char, huffman.Code, huffman.Width)
 
 	fmt.Printf("%v bits added, len(recorder.Result): %v\n", dataWidth, len(dataRecorder.Result()))
 	var widthRecorder *BitsRecorder = NewBitsRecorder()

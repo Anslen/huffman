@@ -24,7 +24,7 @@ func readHuffmanTable(reader *BitsReader) (codes HuffmanCodes, err error) {
 	var char byte
 	var code uint64
 
-	for codeWidth > 0 {
+	for {
 		// ok flag for read
 		var codeWidthOk, charOk, codeOk bool
 
