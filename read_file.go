@@ -69,7 +69,7 @@ func readString(reader *BitsReader, tree *Tree[byte]) (str string, err error) {
 
 	var currentNode *Tree[byte] = tree
 	var ret []byte = make([]byte, 0)
-	for dataWidth > 0 {
+	for i := uint64(0); i < dataWidth; i++ {
 		var bit uint8
 		bit, ok = reader.GetBit()
 		if !ok {
@@ -83,15 +83,15 @@ func readString(reader *BitsReader, tree *Tree[byte]) (str string, err error) {
 			currentNode = currentNode.Right
 		}
 
+		// validate currentNode before accessing children
+		if currentNode == nil {
+			return "", fmt.Errorf("invalid encoding data: reached nil node")
+		}
+
 		// add data to ret when reach leaf node
 		if currentNode.Left == nil && currentNode.Right == nil {
 			ret = append(ret, currentNode.Value)
 			currentNode = tree
-			dataWidth--
-		}
-
-		if currentNode.Left == nil && currentNode.Right == nil {
-			panic("Invalid huffman tree")
 		}
 	}
 

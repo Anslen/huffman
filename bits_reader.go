@@ -127,6 +127,18 @@ func (reader *BitsReader) GetNBits(n int) (ret uint64, ok bool) {
 	if reader.width-reader.currentPointer < n {
 		return 0, false
 	}
+	// if align with byte and n is multiple of 8, read whole bytes
+	if reader.currentPointer%8 == 0 && n%8 == 0 {
+		numBytes := n / 8
+		for i := 0; i < numBytes; i++ {
+			val, _ := reader.GetByte()
+			ret <<= 8
+			ret |= uint64(val)
+		}
+		return ret, true
+	}
+
+	// read each bit
 	for i := 0; i < n; i++ {
 		ret <<= 1
 		bit, _ := reader.GetBit()
