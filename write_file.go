@@ -86,7 +86,6 @@ func writeString(file io.Writer, str string, codes HuffmanCodes) (size int, err 
 		dataWidth += int64(huffman.Width)
 	}
 
-	fmt.Printf("%v bits added, len(recorder.Result): %v\n", dataWidth, len(dataRecorder.Result()))
 	var widthRecorder *BitsRecorder = NewBitsRecorder()
 	// write width info
 	widthRecorder.Add(uint64(dataWidth), 64)
