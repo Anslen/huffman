@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 const HELP_STRING = "pass the file name as arugement to encode or decode\n" +
@@ -82,11 +83,13 @@ func main() {
 
 	if encode_flag {
 		var huffmancodes HuffmanCodes
+		startTime := time.Now()
 		huffmancodes, err := GetHuffmanCodes(string(inputStr))
 		if err != nil {
 			fmt.Printf("Error: generate huffman table faild:\n%v\n", err.Error())
 			os.Exit(1)
 		}
+		codeGenTime := time.Since(startTime)
 
 		// open output file
 		outputFile, err := os.Create(outputFileName)
@@ -99,13 +102,16 @@ func main() {
 		// write to output
 		var huffmanTableSize int
 		var dataSize int
+		writeStartTime := time.Now()
 		huffmanTableSize, dataSize, err = WriteEncodeToFile(outputFile, string(inputStr), huffmancodes)
 		if err != nil {
 			fmt.Printf("Error: write encoded data failed:\n%v\n", err)
 			os.Exit(1)
 		}
+		writeTime := time.Since(writeStartTime)
 
 		// print statistic information
+		fmt.Printf("Encode successful, result in: %v\n", outputFileName)
 		fmt.Printf("Original length: %d bytes\n", len(inputStr))
 		fmt.Printf("Huffman table size: %d bytes\n", huffmanTableSize)
 		fmt.Printf("Compressed length (data only): %d bytes\n", dataSize)
@@ -114,16 +120,23 @@ func main() {
 			ratio := float64(huffmanTableSize+dataSize) / float64(len(inputStr))
 			fmt.Printf("Compression ratio: %.2f%%\n", ratio*100)
 		}
+		totalTime := codeGenTime + writeTime
+		fmt.Printf("Time: Huffman table generation: %.2fs, File writing: %.2fs, Total: %.2fs\n",
+			float64(codeGenTime.Milliseconds())/1000,
+			float64(writeTime.Milliseconds())/1000,
+			float64(totalTime.Milliseconds())/1000)
 	}
 
 	if decode_flag {
 		// decode file
 		var result string
+		decodeStartTime := time.Now()
 		result, err = ReadFile(string(inputStr))
 		if err != nil {
 			fmt.Printf("Error: failed to decode file %s:\n%v\n", inputFileName, err)
 			os.Exit(1)
 		}
+		decodeTime := time.Since(decodeStartTime)
 
 		// open output file
 		outputFile, err := os.Create(outputFileName)
@@ -140,5 +153,7 @@ func main() {
 		}
 
 		fmt.Printf("Decoded successfully, result in: %s\n", outputFileName)
+		fmt.Printf("Decompressed length: %d bytes\n", len(result))
+		fmt.Printf("Time: Decoding: %.2fs\n", float64(decodeTime.Milliseconds())/1000)
 	}
 }
