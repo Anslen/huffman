@@ -111,14 +111,14 @@ func main() {
 		writeTime := time.Since(writeStartTime)
 
 		// print statistic information
-		fmt.Printf("Encode successful, result in: %v\n", outputFileName)
+		fmt.Printf("\nEncode successful, result in: %v\n\n", outputFileName)
 		fmt.Printf("Original length: %d bytes\n", len(inputStr))
 		fmt.Printf("Huffman table size: %d bytes\n", huffmanTableSize)
 		fmt.Printf("Compressed length (data only): %d bytes\n", dataSize)
 		fmt.Printf("Compressed length (with Huffman table): %d bytes\n", huffmanTableSize+dataSize)
 		if len(inputStr) > 0 {
 			ratio := float64(huffmanTableSize+dataSize) / float64(len(inputStr))
-			fmt.Printf("Compression ratio: %.2f%%\n", ratio*100)
+			fmt.Printf("Compression ratio: %.2f%%\n\n", ratio*100)
 		}
 		totalTime := codeGenTime + writeTime
 		fmt.Printf("Time: Huffman table generation: %.2fs, File writing: %.2fs, Total: %.2fs\n",
@@ -152,7 +152,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		fmt.Printf("Decoded successfully, result in: %s\n", outputFileName)
+		fmt.Printf("\nDecoded successfully, result in: %s\n", outputFileName)
 		fmt.Printf("Decompressed length: %d bytes\n", len(result))
 		fmt.Printf("Time: Decoding: %.2fs\n", float64(decodeTime.Milliseconds())/1000)
 	}
