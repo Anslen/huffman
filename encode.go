@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -125,17 +126,28 @@ func BatchEncode(inputPath string, outputPath string) (result BatchEncodeResult,
 	outputPaths, getOutputPathErrors = GetOutputPaths(inputFiles, outputPath, "bin")
 	errors = append(errors, getOutputPathErrors...)
 
-	// process each file
+	// process each file with goroutines
 	var success int = 0
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
 	for i, inputPath := range inputFiles {
-		// encode
-		_, _, encErr := Encode(inputPath, outputPaths[i])
-		if encErr != nil {
-			errors = append(errors, BatchError{Path: inputPath, Err: encErr})
-			continue
-		}
-		success++
+		wg.Add(1)
+		go func(idx int, inPath string) {
+			defer wg.Done()
+			// encode
+			_, _, encErr := Encode(inPath, outputPaths[idx])
+			mu.Lock()
+			defer mu.Unlock()
+			if encErr != nil {
+				errors = append(errors, BatchError{Path: inPath, Err: encErr})
+			} else {
+				success++
+			}
+		}(i, inputPath)
 	}
+
+	wg.Wait()
 
 	// fill result
 	result = BatchEncodeResult{

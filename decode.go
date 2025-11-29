@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -92,17 +93,28 @@ func BatchDecode(inputPath string, outputPath string) (result BatchDecodeResult,
 	outputPaths, getOutputPathErrors = GetOutputPaths(inputFiles, outputPath, "txt")
 	errors = append(errors, getOutputPathErrors...)
 
-	// process each file
+	// process each file with goroutines
 	var success int = 0
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
 	for i, inputPath := range inputFiles {
-		// decode
-		_, _, decErr := Decode(inputPath, outputPaths[i])
-		if decErr != nil {
-			errors = append(errors, BatchError{Path: inputPath, Err: decErr})
-			continue
-		}
-		success++
+		wg.Add(1)
+		go func(idx int, inPath string) {
+			defer wg.Done()
+			// decode
+			_, _, decErr := Decode(inPath, outputPaths[idx])
+			mu.Lock()
+			defer mu.Unlock()
+			if decErr != nil {
+				errors = append(errors, BatchError{Path: inPath, Err: decErr})
+			} else {
+				success++
+			}
+		}(i, inputPath)
 	}
+
+	wg.Wait()
 
 	// fill result
 	result = BatchDecodeResult{
