@@ -41,6 +41,11 @@ func main() {
 		os.Exit(0)
 	}
 
+	if os.Args[1] == "-h" || os.Args[1] == "help" {
+		fmt.Println(HELP_STRING)
+		os.Exit(0)
+	}
+
 	var encode_flag bool = os.Args[1] == "zip"
 	var decode_flag bool = os.Args[1] == "unzip"
 	var batch_flag bool = false
