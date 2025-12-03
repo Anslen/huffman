@@ -30,6 +30,8 @@ type BatchEncodeResult struct {
 	OutputPath   string
 	TotalCount   int
 	SuccessCount int
+	OriginalSize int
+	EncodedSize  int
 	Time         time.Duration
 	Errors       []BatchError
 }
@@ -128,6 +130,8 @@ func BatchEncode(inputPath string, outputPath string) (result BatchEncodeResult,
 
 	// process each file with goroutines
 	var success int = 0
+	var originalSum int = 0
+	var encodedSum int = 0
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
@@ -136,13 +140,16 @@ func BatchEncode(inputPath string, outputPath string) (result BatchEncodeResult,
 		go func(idx int, inPath string) {
 			defer wg.Done()
 			// encode
-			_, _, encErr := Encode(inPath, outputPaths[idx])
+			encSize, _, encErr := Encode(inPath, outputPaths[idx])
 			mu.Lock()
 			defer mu.Unlock()
 			if encErr != nil {
 				errors = append(errors, BatchError{Path: inPath, Err: encErr})
 			} else {
 				success++
+				// accumulate sizes
+				originalSum += encSize.orininal
+				encodedSum += encSize.HuffmanTable + encSize.EncodedData
 			}
 		}(i, inputPath)
 	}
@@ -155,6 +162,8 @@ func BatchEncode(inputPath string, outputPath string) (result BatchEncodeResult,
 		OutputPath:   outputPath,
 		TotalCount:   len(inputFiles),
 		SuccessCount: success,
+		OriginalSize: originalSum,
+		EncodedSize:  encodedSum,
 		Time:         time.Since(startTime),
 		Errors:       errors,
 	}

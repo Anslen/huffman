@@ -147,6 +147,12 @@ func main() {
 				fmt.Printf("\nOutput path: %s\n", outputPath)
 				fmt.Printf("Total files: %d\n", result.TotalCount)
 				fmt.Printf("Successful: %d\n", result.SuccessCount)
+				fmt.Printf("Original total size: %d bytes\n", result.OriginalSize)
+				fmt.Printf("Compressed total size: %d bytes\n", result.EncodedSize)
+				if result.OriginalSize > 0 {
+					var ratio float64 = float64(result.EncodedSize) / float64(result.OriginalSize)
+					fmt.Printf("Compression ratio: %.2f%%\n", ratio*100)
+				}
 				fmt.Printf("Time taken: %.2fs\n", float64(result.Time.Milliseconds())/1000)
 			}
 		} else {
